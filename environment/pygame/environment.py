@@ -365,8 +365,8 @@ class Environment:
                             a = ai['ai'].step(s, reward=0)
                             action[i==self.kinds, : a.shape[-1]] = a[i==self.kinds,:]
                     s, rew, done = self.step(action, dt)
-                beg_phys = time.time()
-                iter += 1
+                    iter += 1
+                beg_phys = time.time()                
 
             cur = time.time()
             if  draw_fps > 0 and cur - beg_draw >= 1/draw_fps:

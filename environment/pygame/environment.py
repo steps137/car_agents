@@ -65,18 +65,19 @@ class Environment:
     #---------------------------------------------------------------------------
 
     def set_ai_dict(self, ai, n_cars):
-        self.kinds = np.zeros(shape=(n_cars,), dtype=np.int32)
-        if ai is not None:
+        if ai is None:
+            self.kinds = np.zeros(shape=(n_cars,), dtype=np.int32)        
+        else:
             if not (type(ai) is dict):
                 ai = {"car": {'ai': ai, 'num': n_cars} }
-            i=0
+            self.n_cars = sum([v['num'] for k,v in ai.items()])
+            self.kinds = np.zeros(shape=(self.n_cars,), dtype=np.int32)        
+            i = 0
             for kind, (k,v) in enumerate(ai.items()):
-                v['kind'] = kind
-                if (not 'num' in v) or i+v['num'] > n_cars:
-                    print(f"Wrong number of cars for AI {k}")
-                    exit()
+                v['kind'] = kind               
                 self.kinds[i:i+v['num']] = kind
                 i += v['num']
+            self.n_cars = i
 
         return ai
     #---------------------------------------------------------------------------
@@ -159,13 +160,18 @@ class Environment:
         self.cars   = []         # list of the cars
         self.targets= []         # list of the targets for agents
 
-        for i in range(self.n_cars):
-            pos = np.zeros(3,)
-            pos[0] = pad + np.random.rand()*(w-2*pad);
-            pos[1] = pad + np.random.rand()*(h-2*pad)
-            alpha = np.random.rand()*2*np.pi
-            dir = np.array([np.cos(alpha), np.sin(alpha), 0.])
+        for i in range(self.n_cars):            
             vel = np.array([0., 0., 0.])
+            if i == 0:
+                pos = np.array([w/4., h/2., 0.])
+                dir = np.array([1., 0., 0.])
+            else:
+                pos = np.zeros(3,)
+                pos[0] = pad + np.random.rand()*(w-2*pad);
+                pos[1] = pad + np.random.rand()*(h-2*pad)
+                alpha = np.random.rand()*2*np.pi
+                dir = np.array([np.cos(alpha), np.sin(alpha), 0.])
+
             self.cars.append( Car(pos=pos, dir=dir, vel=vel, index=i, kind=self.kinds[i]) )
 
             if self.params['all_targets_are_same'] and i > 0:

@@ -40,5 +40,5 @@ class AI_Greedy:
 
         action[:,0] = (r * v).sum(axis=-1)      # force        
         action[v_len.reshape(-1) < 5, 0] = 1.   # if the car is parked, you have to go
-        action[:, 2:] = r.copy()
+        action[:, 2:] = r.copy()                # target direction
         return action

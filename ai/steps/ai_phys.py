@@ -69,7 +69,7 @@ class AI_Phys:
         """
         pos, vel: (N,3);  return force from all cars: (N,3)
         """
-        r = pos.view(len(pos),1,3) - pos.view(1,len(pos),3)   # vec  r_{ij}=r_i-r_j
+        r = pos.view(len(pos),1,3) - pos.view(1,len(pos),3)   # vec (N,N,3): r_{ij}=r_i-r_j
 
         z = torch.zeros_like(r)
         z[:,:,-1] = 1.

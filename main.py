@@ -4,6 +4,7 @@ from environment.pygame.environment import Environment
 from ai.steps.ai_random import AI_Random
 from ai.steps.ai_greedy import AI_Greedy
 from ai.steps.ai_phys   import AI_Phys
+from ai.steps.ai_log   import AI_Log
 
 def main():
     """
@@ -16,13 +17,16 @@ def main():
                 if fps > 1/dt it means "environment acceleration"
         * steps - the number of steps the environment will perform;
     """
+    #ai={'car': {'ai':AI_Greedy(), 'num':4} }
     ai={'car': {'ai':AI_Greedy(), 'num':2}, 'rnd': {'ai':AI_Random(10),  'num':2} }
-    #ai={'car': {'ai':AI_Phys(), 'num':4} }
+    #ai={'car': {'ai':AI_Log(0), 'num':1} }
 
-    env = Environment( ai=ai, n_cars=4,  w=60, h=40, d=100, mt2px=20, level=0)
-    env.set_params(car_collision = False, show_target_line = True, show_actions=True)
-    env.run(draw_fps=40, phys_fps=40, speed_up=False, steps=1_000_000)
-    #env.run(draw_fps=1, phys_fps=40, speed_up=True, steps=1_000_000)
+    env = Environment(ai=ai, w=60, h=40,  mt2px=20, level=0)   # small space
+    #env = Environment(ai=ai, w=600, h=400,  mt2px=2, level=0) # large space
+    env.set_params(car_collision = False, show_target_line = True, show_actions=True, all_targets_are_same=True)
+
+    env.run(draw_fps=40, phys_fps=40, speed_up=False, steps=1_000_000)  # normal speed
+    #env.run(draw_fps=1, phys_fps=40, speed_up=True, steps=1_000_000)   # accelerated physics
 
 #-------------------------------------------------------------------------------
 

@@ -7,16 +7,7 @@ from ai.steps.ai_phys   import AI_Phys
 from ai.steps.ai_log   import AI_Log
 
 def main():
-    """
-    Easy launch of the environment.
-    Inside the run method, the state is transferred to the agent and the action is requested.    
-    Convenient in training mode, when an accelerated calculation of the physics of the environment is needed:
-        * fps - frames per second for drawing the environment (if fps=0 we do not draw);
-                each step of the environment is called as often as possible
-        * dt  - time in seconds that is transmitted to the environment at each step;
-                if fps > 1/dt it means "environment acceleration"
-        * steps - the number of steps the environment will perform;
-    """
+    """ Easy launch of the environment. """
     #ai={'car': {'ai':AI_Greedy(), 'num':4} }
     ai={'car': {'ai':AI_Greedy(), 'num':2}, 'rnd': {'ai':AI_Random(10),  'num':2} }
     #ai={'car': {'ai':AI_Log(0), 'num':1} }
@@ -31,10 +22,7 @@ def main():
 #-------------------------------------------------------------------------------
 
 def main_game(fps = 40):
-    """
-    Emulation of control of the first car in a keyboard.
-    Other cars are controlled by AI.
-    """
+    """ Emulation of control of the first car in a keyboard. Other cars are controlled by AI. """
     ai = AI_Greedy()
     env = Environment(ai={'human':{'ai':None, 'num':1}, 'car':{'ai':ai, 'num':1}},
                       n_cars=2,  w=60, h=40, d=100, mt2px=20, level=0)     # small space

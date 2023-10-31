@@ -14,6 +14,22 @@ class Environment:
     IMG_ICON   = "environment/pygame/img/icon.png"
 
     def __init__(self, ai=None, n_cars=20, w=100, h=50, d=100, mt2px=10, level=0):
+        """
+        Args
+        ------------
+        ai(dict):
+            Agent dictionary in the format { 'name': {'ai': AI(), 'num': 5}, ...}. ai may be missing (in game mode ai=None).
+            There can be several agents; 'name' is an arbitrary string; AI() - AI instance; 'num' is the number of his cars.
+            If the first agent is { 'human': {'ai': None, 'num': 1}, ...} - then this is keyboard control (in game mode).
+        n_cars(int):
+            Number of cars. If ai != None is ignored. The first car (index=0) is considered the player's car (pink), although the AI may ignore this
+        w, h, d (float):
+            Dimensions of space in meters (height d is ignored for now)
+        mt2px (float):
+            Converting meters to pixels. If w,h=60,40 and mt2px=10 - window size = 600x400 px
+        level (int=0,1):
+            If 0 - the space is empty; at level=1 there are fences in the center
+        """
         self.n_cars = n_cars     # number of cars
         self.level  = level      # environment complexity level (0,1,...)
 

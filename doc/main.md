@@ -123,17 +123,26 @@ To close the game if it freezes, you need to press ~ and enter exit.
 
 When working with a simulator in Python (without Unreal),
 it is possible to configure various environment parameters:
-* `w,h,d` - dimensions of the playing space in meters
-* `mt2px` - conversion of meters to pixels (if w=100m and mt2px=15, then the screen width is 1500px)
-* `n_cars` - number of cars. The first car (index=0) is considered the player's car (pink), although the AI may ignore this
-* `level` - difficulty level (0-empty space, except borders; 1-there are partitions inside the space)
+* `ai (dict)`: Agent dictionary in the format `{ 'name': {'ai': AI(), 'num': 5}, ...}`. ai may be missing (in game mode `ai=None`). There can be several agents; `'name'` is an arbitrary string; `AI()` - AI instance; `'num'` is the number of his cars. If the first agent is `{ 'human': {'ai': None, 'num': 1}, ...}` - then this is keyboard control (in game mode).
+* `n_cars (int)`: Number of cars. If ai != None is ignored. The first car (index=0) is considered the player's car (pink), although the AI may ignore this
+* `w,h,d (float)`: Dimensions of space in meters (height d is ignored for now)
+* `mt2px (float)`: Converting meters to pixels. If w,h=60,40 and mt2px=10 - window size = 600x400px
+* `level (int=0,1)` - difficulty level (0-empty space, except borders; 1-there are fences inside the space)
 
-After creating the environment, you can call the env.set_params function (see example in main_1) with the arguments:
-* `car_collision        = True`  handle car collisions
-* `segment_collision    = True`  handle collisions with segments
-* `all_targets_are_same = False` the coordinates of all targets are the same
-* `show_target_line     = False` show line from car to target
-* `show_actions         = False` show current car actions
+After creating the environment, you can call the `env.set_params` function (see example in main_1) with the arguments:
+
+* `car_collision        (bool=True):`  handle car collisions
+* `segment_collision    (bool=True):`  handle collisions with segments
+* `all_targets_are_same (bool=False):` the coordinates of all targets are the same
+* `show_target_line     (bool=False):` show line from car to target
+* `show_actions         (bool=False):` show current car actions
+
+To start the simulation, run `env.run` with parameters:
+* `draw_fps (float = 40)`: frames per second for drawing the environment
+* `phys_fps (float = 40)`: frames per second for physics (if speed_up then virtual)
+* `speed_up (bool = True)`: to accelerate physics or not; if True, then the equations will be solved for time dt = 1/phys_fps, but in computer time this will be done as quickly as possible
+* `steps    (int = 1000)`: number of calls to the step function of AI (same as the number of calls to phys)
+
 
 If AI returns actions of dimension (N,5), then the first 2 actions are interpreted as gas and steering,
 the remaining 3 are components of the vector that is drawn when the show_actions=True
@@ -146,3 +155,9 @@ In addition to standard keyboard arrow control (see main_game function), the pyg
 * `t`   - enable/disable line to target     (show_target_line = True/False)
 * `tab` - switch the camera (only in the game mode - see main_game)
 
+The window title displays:
+* speed (in m/sec and km/h) of the first (zero) car
+* fps of physics work (with `speed_up=True` of the `env.run` function it can be large).
+* time and number of physics simulation steps (with `speed_up=True` of the `env.run` changes quickly)
+* targets - number of targets collected by each type of AI
+* average time to reach the goal for each type of AI per agent

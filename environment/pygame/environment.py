@@ -243,8 +243,8 @@ class Environment:
         for i, (car,target) in enumerate(zip(self.cars, self.targets)):
             pos = car.pos
             if (pos-target)@(pos-target) < car.radius**2:
-                self.targets[i] = self.get_random_target(self.space_w, self.space_h, pad)
-                new_target = target
+                new_target  = self.get_random_target(self.space_w, self.space_h, pad)
+                self.targets[i] = new_target
                 self.tot_targets[car.kind] += 1
                 self.reward[i] += Environment.REWARD_TARGET
 

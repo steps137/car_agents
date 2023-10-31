@@ -14,7 +14,7 @@ def main():
 
     env = Environment(ai=ai, w=60, h=40,  mt2px=20, level=0)   # small space
     #env = Environment(ai=ai, w=600, h=400,  mt2px=2, level=0) # large space
-    env.set_params(car_collision = False, show_target_line = True, show_actions=True, all_targets_are_same=False)
+    env.set_params(car_collision = True, show_target_line = True, show_actions=True, all_targets_are_same=False)
 
     env.run(draw_fps=40, phys_fps=40, speed_up=False, steps=1_000_000)  # normal speed
     #env.run(draw_fps=1, phys_fps=40, speed_up=True, steps=1_000_000)   # accelerated physics

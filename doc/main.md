@@ -48,7 +48,7 @@ state = {
     'space': np.array (3,)       # dimensions in meters of space
     'dt':    float               # time since previous states update
     'pos':   np.array (N,3)      # position vectors of the center of mass of all cars in meters
-    'vel':   np.array (N,3)      # velocity vectors of the center of mass of all cars in meters per seconds
+    'vel':   np.array (N,3)      # velocity vectors of the center of mass of all cars in m/sec
     'dir':   np.array (N,3)      # car orientation unit vector (from the center of mass forward)
     'wheels':np.array (N,2)      # turning angles of the front wheels of cars
     'target_pos': np.array (N,3) # position of target points

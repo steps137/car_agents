@@ -129,10 +129,10 @@ it is possible to configure various environment parameters:
 * `mt2px (float)`: Converting meters to pixels. If w,h=60,40 and mt2px=10 - window size = 600x400px
 * `level (int=0,1)` - difficulty level (0-empty space, except borders; 1-there are fences inside the space)
 
-After creating the environment, you can call the `env.set_params` function (see example in main_1) with the arguments:
+After creating the environment, you can call the `env.set_params` function (see example in main) with the arguments:
 
 * `car_collision        (bool=True):`  handle car collisions
-* `segment_collision    (bool=True):`  handle collisions with segments
+* `segment_collision    (bool=True):`  handle collisions with segments (inside space)
 * `all_targets_are_same (bool=False):` the coordinates of all targets are the same
 * `show_target_line     (bool=False):` show line from car to target
 * `show_actions         (bool=False):` show current car actions
@@ -145,7 +145,7 @@ To start the simulation, run `env.run` with parameters:
 
 
 If AI returns actions of dimension (N,5), then the first 2 actions are interpreted as gas and steering,
-the remaining 3 are components of the vector that is drawn when the show_actions=True
+the remaining 3 are components of the vector that is drawn when the show_actions=True.
 You can, for example, write the direction from the Decision Making module into this vector.
 
 In addition to standard keyboard arrow control (see main_game function), the pygame environment supports the following keys:
@@ -160,4 +160,4 @@ The window title displays:
 * fps of physics work (with `speed_up=True` of the `env.run` function it can be large).
 * time and number of physics simulation steps (with `speed_up=True` of the `env.run` changes quickly)
 * targets - number of targets collected by each type of AI
-* average time to reach the goal for each type of AI per agent
+* average time to reach the target for each type of AI per agent

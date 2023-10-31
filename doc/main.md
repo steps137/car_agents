@@ -6,15 +6,15 @@ There are two options for simulating car physics to train AI models.
 
 1) Physics simulation takes place in the **Unreal engine**, which interacts with a python script.
 You should select EnvironmentUnreal as the environment 
-(see example in `NeuralPilotAI/src/run.py`). 
+(see example in `NeuralPilotAI/src/run_unreal.py`). 
 To run Unreal and python scripts you need to start `run_all.cmd`.
 It is worth first running `NeuralPilotAI/setup.cmd` which will install the necessary python libraries.
 
 2) Physics simulation occurs directly in Python - **Pygame Environment**.
 You don't need Unreal for this. Physics is significantly faster, but not as realistic.
 The Environment class should be selected as the environment.
-Various launch options are possible (see functions main and main_game in `NeuralPilotAI/src/main.py`
-and `main.py` run it directly).
+Various launch options are possible (see functions main and main_game in `NeuralPilotAI/src/run_pygame.py`
+and `run_pygame.py` run it directly).
 
 The logic of interaction with the environment is described in the agent class.
 This class should have methods:
@@ -108,7 +108,7 @@ Each AI has text parameters:
 * `Num` - number of machines for this AI. It is important to control the total number of cars and the number of cars indicated in the AI, because if the total number is less, then not all AIs will work. For example, if the total number of machines = 3 and AI_0 is set to 5, then only 3 AI_0 machines will be created. No other AI_X will be created.
 
 To run the game, you need to run the game server and client separately.
-The server is located at the path: `~\NeuralPilotAI\src\main.py`
+The server is located at the path: `~\NeuralPilotAI\src\run_unreal.py`
 The game client is located at: `~\AiCar vX\WindowsNoEditor\AICar.exe`
 (for a quick launch, you can use the run_all.cmd file in the root)
 
@@ -129,7 +129,7 @@ it is possible to configure various environment parameters:
 * `mt2px (float)`: Converting meters to pixels. If w,h=60,40 and mt2px=10 - window size = 600x400px
 * `level (int=0,1)` - difficulty level (0-empty space, except borders; 1-there are fences inside the space)
 
-After creating the environment, you can call the `env.set_params` function (see example in main) with the arguments:
+After creating the environment, you can call the `env.set_params` function (see example in function main in `run_pygame.py`) with the arguments:
 
 * `car_collision        (bool=True):`  handle car collisions
 * `segment_collision    (bool=True):`  handle collisions with segments (inside space)

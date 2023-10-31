@@ -13,8 +13,8 @@ It is worth first running `NeuralPilotAI/setup.cmd` which will install the neces
 2) Physics simulation occurs directly in Python - **Pygame Environment**.
 You don't need Unreal for this. Physics is significantly faster, but not as realistic.
 The Environment class should be selected as the environment.
-Various launch options are possible (see functions main1, main2 and main_game in `NeuralPilotAI/src/main.py`
-and run it directly).
+Various launch options are possible (see functions main and main_game in `NeuralPilotAI/src/main.py`
+and `main.py` run it directly).
 
 The logic of interaction with the environment is described in the agent class.
 This class should have methods:
@@ -23,10 +23,11 @@ This class should have methods:
     step (state, reward)     # the agent receives current state and reward (can be ignored)
 ```
 The last method should return actions as a numpy array `(N,2)`,
-where `N` is the number of agents, 2 actions (gas/brake and steering wheel turn) for each `[-1..1]`.
+where `N` is the number of agents, 2 actions (gas/brake and steering wheel turn) 
+with values for each in the range `[-1..1]`.
 
 
-Examples of agents can be found in the `NeuralPilotAI/src/ai/steps` folder:
+Examples of agents can be found in the folder `NeuralPilotAI/src/ai/steps`:
 * `ai_random.py` - performs random actions
 * `ai_greedy.py` - greedy movement towards the goal
 
@@ -40,7 +41,7 @@ init_state = {
     'n_cars':  int,              # number of cars (any kind)
     'ai_kind': int,              # kind of type current AI
     'kind':    np.array (N,),    # type of each car for different AI (kind==0 - human)
-	'string':  np.array (M,2,3), # walls positions L(x,y,z), R(x,y,z)
+    'string':  np.array (M,2,3), # walls positions L(x,y,z), R(x,y,z)
 }
 
 state = {
@@ -98,7 +99,7 @@ AI_7=Type=car,Color=tires,Num=1
 AI_8=Type=car,Color=blue,Num=1
 ```
 where:
-* `count` is the number of active AIs. (The number of active AIs must correspond to the number of AIs in the adapter. `EnvironmentUnreal([AI1(), AI2(), AI3()]) -> env_ai_count == 3`) If the number does not match, then part of the AI will not work. (If `count > env_ai_count`, then cars without AI will be created in Unreal, and if `count < env_ai_count`, then AI from EnvironmentUnreal will not be tied to cars)
+* `count` is the number of active AIs. (The number of active AIs must correspond to the number of AIs in the adapter. `EnvironmentUnreal([AI1(), AI2(), AI3()])`=> `env_ai_count == 3`) If the number does not match, then part of the AI will not work. (If `count > env_ai_count`, then cars without AI will be created in Unreal, and if `count < env_ai_count`, then AI from EnvironmentUnreal will not be tied to cars)
 * `AI_X` - AI parameters, where X is the AI serial number. In general, you can define as many AI as you like. In a particular case - 9, because 9 different colors are implemented and when determining the number of AI > 9, some colors will be repeated.
 
 Each AI has text parameters:

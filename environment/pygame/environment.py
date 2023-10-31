@@ -499,3 +499,22 @@ class Environment:
     def close(self):
         pg.quit()                             # close the window pygame
 
+"""
+#-------------------------------------------------------------------------------
+def main_2(dt = 0.02):
+    ```
+    The interaction between the agent and the environment is implemented in the OpenAI Gym style
+    ```
+    env = Environment(ai=None, n_cars=5)
+    ai  = AI_Greedy()
+    (init_state, state), reward = env.reset(), 0                 # re-creation of all objects; cars are stationary at random points
+    ai.reset(init_state, state)
+    for _ in range(1000000):
+        action = ai.step(state, reward)            # choice of actions for all agents
+        state, reward, done = env.step(action, dt) # get a new state, a reward and a info about of the end of the session
+
+        env.draw()                                 # if you need to draw the environment
+        if  env.event() == 'quit' or done:         # ESC message from the keyboard or stopped by environment
+            break
+        env.tick(fps=1/dt)
+"""

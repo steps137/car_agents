@@ -11,7 +11,7 @@ class AI_Random:
         self.n_cars = init_state['n_cars']
         
 
-    def step(self, state, reward):
+    def step(self, state, reward=None, done=None):
         """ 
         Receives state and reward, returns random actions.
         To stop it from twitching so much, we change the action every 10 calls.

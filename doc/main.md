@@ -19,13 +19,16 @@ and `run_pygame.py` run it directly).
 The logic of interaction with the environment is described in the agent class.
 This class should have methods:
 ```python
-    reset(init_state, state) # getting the initial static state and current state of environment
-    step (state, reward)     # the agent receives current state and reward (can be ignored)
+    reset(init_state, state)   # getting the initial static state and current state of environment
+    step (state, reward, done) # the agent receives current state and reward (can be ignored)
 ```
 The last method should return actions as a numpy array `(N,2)`,
 where `N` is the number of agents, 2 actions (gas/brake and steering wheel turn) 
 with values for each in the range `[-1..1]`.
 
+* The environment state dictionary `state` is described in the next section.
+* The `reward` array for each agent contains the reward for the last action. This reward is equal to the sum of the rewards from reaching the target (+100), colliding with the car (-10) and colliding with the segment (-1).
+* The `done` array is Boolean and for the i-th agent at this step it is equal to True if the agent has achieved the target.
 
 Examples of agents can be found in the folder `NeuralPilotAI/src/ai/steps`:
 * `ai_random.py` - performs random actions
@@ -35,7 +38,7 @@ Examples of agents can be found in the folder `NeuralPilotAI/src/ai/steps`:
 
 The environment transmits to the agent the initial state (about static data),
 the current state of the environment and the reward:
-```python
+```python*
 init_state = {
     'space':   np.array (3,),    # dimensions in meters of space
     'n_cars':  int,              # number of cars (any kind)
@@ -44,8 +47,7 @@ init_state = {
     'string':  np.array (M,2,3), # walls positions L(x,y,z), R(x,y,z)
 }
 
-state = {
-    'space': np.array (3,)       # dimensions in meters of space
+state = {    
     'dt':    float               # time since previous states update
     'pos':   np.array (N,3)      # position vectors of the center of mass of all cars in meters
     'vel':   np.array (N,3)      # velocity vectors of the center of mass of all cars in m/sec

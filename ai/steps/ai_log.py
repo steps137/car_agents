@@ -7,12 +7,12 @@ class AI_Log:
         self.iter = 0
         self.tm   = []
         self.v    = None; self.s    = None; self.w    = None
-        self.r    = None;
+        self.r    = None; self.a    = None
 
     def reset(self, init_state, state):
         self.n_cars = init_state['n_cars']
 
-    def step(self, state, reward=0):
+    def step(self, state, reward=None, done=None):
         pos, vel, dir = state['pos'][0], state['vel'][0], state['dir'][0]
         wheels  = state['wheels'][0]
         tar_pos  = state['target_pos'][0]
@@ -38,9 +38,11 @@ class AI_Log:
                 action[:,0] = 1.
             elif self.iter == n1+n2:
                 tm = np.array(self.tm).cumsum()
-                fig, (ax1,ax2,ax3) = plt.subplots(1,3, figsize=(12,3), facecolor ='w')
+                fig, (ax1,ax2,ax3) = plt.subplots(1,3, figsize=(13,3), facecolor ='w')
                 ax1.set_title(f"Velocity n1:{n1}, n2:{n2}"); ax1.plot(tm, self.v); ax1.grid(ls=":")
+                ax1a = ax1.twinx();   ax1a.plot(tm[:-1], self.a[:,0], ls=":", c='r');  ax1a.plot(tm[:-1], self.a[:,1], ls=":", c='g');
                 ax2.set_title("Distance"); ax2.plot(tm, self.s.cumsum(0)); ax2.grid(ls=":")
+                ax2a = ax2.twinx();   ax2a.plot(tm[:-1], self.a[:,0], ls=":", c='r');  ax2a.plot(tm[:-1], self.a[:,1], ls=":", c='g');
                 ax3.set_title("Track");    ax3.plot(self.r[:,0], self.r[:,1]); ax3.grid(ls=":")
                 plt.show()
                 exit()
@@ -63,4 +65,5 @@ class AI_Log:
                 exit()
 
         self.iter += 1
+        self.a = action if self.a is None else np.vstack((self.a, action))
         return action

@@ -3,18 +3,21 @@ import numpy as np, time
 from environment.pygame.environment import Environment
 from ai.steps.ai_random import AI_Random
 from ai.steps.ai_greedy import AI_Greedy
+from ai.steps.env_model import AI_EnvModel
 from ai.steps.ai_phys   import AI_Phys
-from ai.steps.ai_log   import AI_Log
+from ai.steps.ai_log    import AI_Log
 
 def main():
-    """ Easy launch of the environment. """
-    #ai={'car': {'ai':AI_Greedy(), 'num':4} }
-    ai={'car': {'ai':AI_Greedy(), 'num':2}, 'rnd': {'ai':AI_Random(10),  'num':2} }
+    """ Easy launch of the environment. """    
+    ai={'car': {'ai':AI_Greedy(3), 'num':4} }
+    #ai={'algo0': {'ai':AI_Greedy(0), 'num':2}, 'algo1': {'ai':AI_Greedy(1),  'num':2}}
+    #ai={'car': {'ai':AI_Greedy(), 'num':2}, 'rnd': {'ai':AI_Random(10),  'num':2} }
     #ai={'car': {'ai':AI_Log(0), 'num':1} }
+    #ai={'car': {'ai':AI_EnvModel(), 'num':4} }
 
     env = Environment(ai=ai, w=60, h=40,  mt2px=20, level=0)   # small space
     #env = Environment(ai=ai, w=600, h=400,  mt2px=2, level=0) # large space
-    env.set_params(car_collision = True, show_target_line = True, show_actions=True, all_targets_are_same=False)
+    env.set_params(car_collision = True, seg_collision = True, show_target_line = True, show_actions=True, all_targets_are_same=False)
 
     env.run(draw_fps=40, phys_fps=40, speed_up=False, steps=1_000_000)  # normal speed
     #env.run(draw_fps=1, phys_fps=40, speed_up=True, steps=1_000_000)   # accelerated physics
@@ -23,12 +26,12 @@ def main():
 
 def main_game(fps = 40):
     """ Emulation of control of the first car in a keyboard. Other cars are controlled by AI. """
-    ai = AI_Greedy()
+    ai = AI_Greedy(1)
     env = Environment(ai={'human':{'ai':None, 'num':1}, 'car':{'ai':ai, 'num':1}},
                       n_cars=2,  w=60, h=40, d=100, mt2px=20, level=0)     # small space
     #env = Environment(n_cars=2,  w=150, h=80, d=100, mt2px=10, level=1)   # large space
-
-    env.all_targets_are_same = True           # the coordinates of all targets are the same
+    env.set_params(car_collision = False, seg_collision = False, show_target_line = True, show_actions=True, all_targets_are_same=False)    
+    
     init_state, state = env.reset()
     ai.reset( init_state, state )             # initialize the game, learn the state from the environment
 

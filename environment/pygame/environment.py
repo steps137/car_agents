@@ -39,11 +39,12 @@ class Environment:
         self.mt2px   = mt2px     # converting meters to pixels
 
         self.params = {
-            'car_collision':        True,  # handle car collisions
-            'segment_collision':    True,  # handle collisions with segments
+            'car_collision':        True,  # handle car collisions            
+            'seg_collision':        True,  # handle collisions with segments
             'all_targets_are_same': False, # the coordinates of all targets are the same
             'show_target_line':     False, # show line from car to target
-            'show_actions':         False  # show current car actions
+            'show_actions':         False, # show current car actions
+            'gap':                  4      # distance in meters of the target from the boundaries of space
         }
 
         self.ai     = self.set_ai_dict(ai, n_cars)
@@ -67,17 +68,17 @@ class Environment:
         self.font        = None
         self.pause       = False
 
-        self.reset()
     #---------------------------------------------------------------------------
 
     def set_params(self,**kvargs):
         for k, v in kvargs.items():
             if    k == 'car_collision':        self.params['car_collision']        = v
-            elif  k == 'segment_collision':    self.params['segment_collision']    = v
+            elif  k == 'seg_collision':        self.params['seg_collision']        = v
             elif  k == 'all_targets_are_same': self.params['all_targets_are_same'] = v
             elif  k == 'show_target_line':     self.params['show_target_line']     = v
             elif  k == 'show_actions':         self.params['show_actions']         = v
-            else: print(f"!!! Warning: unknown parameter {k} = {v}")
+            elif  k == 'gap':                  self.params['gap']                  = v
+            else: print(f"!!! Warning: unknown parameter {k} = {v}")                
     #---------------------------------------------------------------------------
 
     def set_ai_dict(self, ai, n_cars):
@@ -142,6 +143,9 @@ class Environment:
 
     def reset(self):
         """ Restart environment """
+        self.reward = np.zeros((self.n_cars,))
+        self.done   = np.zeros((self.n_cars,), dtype=bool)
+
         self.create_segments        (self.space_w, self.space_h)
         self.create_cars_and_tragets(self.space_w, self.space_h)
 
@@ -172,9 +176,10 @@ class Environment:
         self.segs = np.array(segs)    # (M,2,3)
     #---------------------------------------------------------------------------
 
-    def create_cars_and_tragets(self, w, h, pad = 2):
+    def create_cars_and_tragets(self, w, h):
         self.cars   = []         # list of the cars
         self.targets= []         # list of the targets for agents
+        gap = self.params['gap']
 
         for i in range(self.n_cars):            
             vel = np.array([0., 0., 0.])
@@ -183,8 +188,8 @@ class Environment:
                 dir = np.array([1., 0., 0.])
             else:
                 pos = np.zeros(3,)
-                pos[0] = pad + np.random.rand()*(w-2*pad);
-                pos[1] = pad + np.random.rand()*(h-2*pad)
+                pos[0] = gap + np.random.rand()*(w-2*gap);
+                pos[1] = gap + np.random.rand()*(h-2*gap)
                 alpha = np.random.rand()*2*np.pi
                 dir = np.array([np.cos(alpha), np.sin(alpha), 0.])
 
@@ -193,17 +198,18 @@ class Environment:
             if self.params['all_targets_are_same'] and i > 0:
                 target = self.targets[0]
             else:
-                target = self.get_random_target(w, h, pad)
+                target = self.get_random_target(w, h)
             self.targets.append(target)
     #---------------------------------------------------------------------------
 
-    def get_random_target(self, w, h, pad):
+    def get_random_target(self, w, h):
+        gap = self.params['gap']
         for _ in range(100):
-            tar = np.array([pad+np.random.rand()*(w-2*pad), pad+np.random.rand()*(h-2*pad), 0.])
+            tar = np.array([gap+np.random.rand()*(w-2*gap), gap+np.random.rand()*(h-2*gap), 0.])
             ok = True
             for i in range(4, len(self.segs)):  # only internal segments
                 r = self.r_seg(tar, self.segs[i])
-                if np.linalg.norm(r) < pad:
+                if np.linalg.norm(r) < gap:
                     ok = False
                     break
             if ok:
@@ -217,11 +223,12 @@ class Environment:
         for a,car in zip(action, self.cars):
             car.action(a, dt)
         self.reward = np.zeros((self.n_cars,))
+        self.done   = np.zeros((self.n_cars,), dtype=bool)
 
         self.phys(dt)                                      # physics processing
 
         state =  self.state(dt)
-        return state, self.reward , False
+        return state, self.reward , self.done
 
     #---------------------------------------------------------------------------
 
@@ -253,16 +260,17 @@ class Environment:
         self.calc_fps()
     #---------------------------------------------------------------------------
 
-    def collect_targets(self, pad=10):
+    def collect_targets(self):
         """ Collecting car targets"""
         new_target = None
         for i, (car,target) in enumerate(zip(self.cars, self.targets)):
             pos = car.pos
             if (pos-target)@(pos-target) < car.radius**2:
-                new_target  = self.get_random_target(self.space_w, self.space_h, pad)
+                new_target  = self.get_random_target(self.space_w, self.space_h)
                 self.targets[i] = new_target
                 self.tot_targets[car.kind] += 1
                 self.reward[i] += Environment.REWARD_TARGET
+                self.done[i] = True
 
         if self.params['all_targets_are_same'] and new_target is not None:
             for i in range(len(self.targets)):
@@ -271,7 +279,7 @@ class Environment:
 
     def collisions_segs(self, car):
         """ Car collision with segments """
-        if self.params['segment_collision']:
+        if self.params['seg_collision']:
             for seg in self.segs:
                 r = self.r_seg(car.pos, seg)
                 d = np.linalg.norm(r)         # dist to segment
@@ -362,7 +370,7 @@ class Environment:
                     action = np.zeros(shape=(self.n_cars, 5))
                     for i, (name,ai) in enumerate(self.ai.items()):
                         if ai['ai'] is not None:
-                            a = ai['ai'].step(s, reward=0)
+                            a = ai['ai'].step(s, reward=self.reward.copy(), done=self.done.copy())
                             action[i==self.kinds, : a.shape[-1]] = a[i==self.kinds,:]
                     s, rew, done = self.step(action, dt)
                     iter += 1
@@ -380,6 +388,7 @@ class Environment:
 
         if verbose:
             print(f"finish: fps={0 if self.fps is None else self.fps:.2f}  steps={iter} of {steps}")
+            print(self.get_info())
         self.close()
     #---------------------------------------------------------------------------
 
@@ -419,13 +428,17 @@ class Environment:
         for car in self.cars:
             car.draw(surf, mt2px)
             if self.params['show_actions'] and car.actions is not None:
-                text = f"{car.actions[0]:4.1f},{car.actions[1]:4.1f}"
-                txt_surf = self.font.render(text, False, (0, 0, 0))
+                text = f"{car.actions[0]:4.1f},{car.actions[1]:4.1f}; v:{np.linalg.norm(car.vel):.0f}"
+                txt_surf = self.font.render(text, False, (0, 0, 0))                                
                 surf.blit(txt_surf, (car.pos[0]*mt2px,car.pos[1]*mt2px))
                 if len(car.actions) == 5:
                     p0 = car.pos*mt2px
                     p1 = p0 + car.actions[2:]*(2*car.radius*mt2px)
                     pg.draw.line(surf, (255,0,0), (p0[0],p0[1]), (p1[0],p1[1]), 2)
+                #p0 = car.pos*mt2px
+                #p1 = p0 + car.acc*(5*car.radius*mt2px)
+                #g.draw.line(surf, (0,0,255), (p0[0],p0[1]), (p1[0],p1[1]), 2)
+                
 
         if self.camera == 1:
             car = self.cars[0]
@@ -466,7 +479,7 @@ class Environment:
     #---------------------------------------------------------------------------
 
     def get_info(self):
-        times = ", ".join([f"{self.tot_phys_time/(n/len(self.kinds==k)):.3f}" if n else "???"  for k,n in enumerate(self.tot_targets) ])
+        times = ", ".join([f"{self.tot_phys_time/(n/sum(self.kinds==k)):.3f}" if n else "???"  for k,n in enumerate(self.tot_targets) ])
         return f'fps: {0. if self.fps is None else self.fps:.1f} ({self.tot_phys_time/self.tot_phys_run:.3f} sec);  time: {self.tot_phys_time:.0f} sec;  {self.tot_phys_run} steps;  targets: {self.tot_targets}; time: {times}s per kind'
     #---------------------------------------------------------------------------
 
@@ -487,8 +500,7 @@ class Environment:
             if ent.type == pg.QUIT:
                 return 'quit'
             elif ent.type == pg.KEYDOWN:
-                if ent.key == pg.K_ESCAPE:
-                    print(self.get_info())
+                if ent.key == pg.K_ESCAPE:                    
                     return 'quit'
                 elif ent.key == pg.K_TAB:
                     return 'tab'

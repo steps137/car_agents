@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+
 class AI_Phys:
     def __init__(self) -> None:
         self.car_R          = 2.
@@ -26,7 +27,7 @@ class AI_Phys:
 
     #---------------------------------------------------------------------------
 
-    def step(self, state, reward=None, done=None):
+    def step(self, state, reward, done):
         """
         Receives state and reward, returns simple actions.
         """

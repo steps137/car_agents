@@ -10,18 +10,18 @@ class CarModelNormal:
 
     mass    = 3000  # kg  # mass of the car
 
-    mu1     = 0.005       # coefficient of friction on air
-    mu2     = 2.          # coefficient of friction on asphalt
+    mu1     = 0.005        # coefficient of friction on air
+    mu2     = 2.           # coefficient of friction on asphalt    
 
     omega = (np.pi/2)/0.5 # angular velocity rad/sec
 
-    engine_forward  = 7   # acceleration by pressing the gas pedal once
-    engine_back     = 5   # same, moving backwards
-    engine_brake    = 25  # braking
+    engine_forward  =  7   # acceleration by pressing the gas pedal once
+    engine_back     =  5   # same, moving backwards
+    engine_brake    = 25   # braking
     steering_sensitivity = 100
 
-    w_max = 30*np.pi/180  # maximum rotation angle     in rad
-    v_max = 30            # 30 m/sec max velocity * 3.6 = 108 km/h
+    v_max = 20            # 20 m/sec max velocity * 3.6 = 72 km/h
+    w_max = 30*np.pi/180  # maximum rotation angle     in rad    
     w_back_T = 0.5        # the wheels time align in a second
 
 #-------------------------------------------------------------------------------
@@ -48,8 +48,7 @@ class Car:
         self.w12 = 0               # right wheel steering angle in rad
 
         self.force   = 0           # current gas-brake force
-        self.actions = None        # current actions
-        self.acc     = np.zeros((3,))
+        self.actions = None        # current actions        
 
         self.model   = CarModelNormal()
 
@@ -113,17 +112,21 @@ class Car:
         v = np.linalg.norm(self.vel)
         
         #co, si, dir = np.cos(self.w11), np.sin(self.w11), self.dir
-        #force = np.array([dir[0]*co + dir[1]*si, -dir[0]*si + dir[1]*co, 0.]) * self.force
+        #force = np.array([dir[0]*co + dir[1]*si, -dir[0]*si + dir[1]*co, 0.]) * self.force       
         force = dir * (self.force)              # rear wheel drive car
+    
+        fc = np.array([-self.dir[1], self.dir[0], 0.])*v*v*np.tan(self.w11)/self.L
+        a = fc                                   # centripetal force from wheels
+        self.vel += a*dt                         # new velocity value        
+        
+        dv2 = (np.linalg.norm(fc)*dt)**2         # corrections of second order
+        v2  = np.linalg.norm(self.vel)**2               
+        self.vel *= (max(0, v2 - dv2) / (v2 + eps))**0.5
 
-        #  engine power, air friction, road friction,  centripetal force from wheels:
-        a = force                           \
-          - self.model.mu1*v*self.vel       \
-          - self.model.mu2*self.vel/(v+eps) \
-          + np.array([self.dir[1], -self.dir[0], 0.])*v*v*np.tan(self.w11)/self.L
-
-        self.vel += a*dt                         #  new velocity value
-        self.acc = a*dt
+        a = force                                #  engine power
+        a -= self.model.mu1*v*vel1           # air friction
+        a -= self.model.mu2*vel1/(v+eps)     # road friction
+        self.vel += a*dt                         # new velocity value                 
 
         v = np.linalg.norm(self.vel)             # limit the speed value
         if v > self.model.v_max:
@@ -147,7 +150,7 @@ class Car:
             s = pg.Surface((self.model.wheel_w, self.model.wheel_h))
             s = s.convert_alpha()
             pg.draw.rect(s,  CarColors.c_wheel, [0,0, self.model.wheel_w, self.model.wheel_h], border_radius=10)
-            s = pg.transform.rotate(s, np.rad2deg(w))
+            s = pg.transform.rotate(s, -np.rad2deg(w))
             rect = s.get_rect(center=(p[0], p[1]))
             surf.blit(s, rect)
 
@@ -176,7 +179,6 @@ class Car:
 
         pg.draw.circle(surf, CarColors.c_headlights, (p11[0]+self.model.wheel_w,p11[1]-self.model.wheel_h), 30)
         pg.draw.circle(surf, CarColors.c_headlights, (p12[0]+self.model.wheel_w,p12[1]+self.model.wheel_h), 30)
-
 
         wheel(surf, p11, self.w11)
         wheel(surf, p12, self.w12)

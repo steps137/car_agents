@@ -6,7 +6,7 @@ from .car import Car, CarColors
 class Environment:
 
     REWARD_TARGET  = 100  # reward for a given car for reaching a target point
-    REWARD_CAR_CAR = -10  # reward (punishment) for car collision
+    REWARD_CAR_CAR = -50  # reward (punishment) for car collision
     REWARD_CAR_SEG = -1   # reward (punishment) for a collision between a car and a segment
 
     IMG_GROUND = "environment/pygame/img/ground.png"
@@ -142,13 +142,15 @@ class Environment:
     #---------------------------------------------------------------------------
 
     def reset(self):
-        """ Restart environment """
+        """ Restart environment """        
         self.reward = np.zeros((self.n_cars,))
-        self.done   = np.zeros((self.n_cars,), dtype=bool)
+        self.done   = np.zeros((self.n_cars,), dtype=bool)        
 
         self.create_segments        (self.space_w, self.space_h)
         self.create_cars_and_tragets(self.space_w, self.space_h)
 
+        self.num_collisions = 0
+        self.tot_rewards = [0]*len(self.ai) if self.ai is not None else [0]
         self.tot_targets = [0]*len(self.ai) if self.ai is not None else [0]
         self.tot_phys_time = 0
         self.tot_phys_run  = 0
@@ -255,6 +257,9 @@ class Environment:
                 for j in range(i+1, self.n_cars):
                     self.collisions_cars(c1, self.cars[j], dt)
 
+        for i,car in enumerate(self.cars):
+            self.tot_rewards[car.kind] += self.reward[i]
+
         self.tot_phys_time += dt
         self.tot_phys_run  += 1
         self.calc_fps()
@@ -304,6 +309,7 @@ class Environment:
         d = np.linalg.norm(r)
         if d > c1.radius + c2.radius:
             return 0.
+        self.num_collisions += 2
         n = r / (d+1e-8)
 
         # move the "balls" apart:
@@ -365,9 +371,10 @@ class Environment:
         while True:
             cur = time.time()
             if speed_up or cur - beg_phys >= 1/phys_fps:
-                dt = 1/phys_fps if speed_up else cur - beg_phys
+                #dt = 1/phys_fps if speed_up else cur - beg_phys
+                dt = 1/phys_fps
                 if not self.pause:
-                    action = np.zeros(shape=(self.n_cars, 5))
+                    action = np.zeros(shape=(self.n_cars, 2+3*3))
                     for i, (name,ai) in enumerate(self.ai.items()):
                         if ai['ai'] is not None:
                             a = ai['ai'].step(s, reward=self.reward.copy(), done=self.done.copy())
@@ -426,15 +433,26 @@ class Environment:
             pg.draw.line(surf, (0,0,0), (p1[0], p1[1]), (p2[0], p2[1]), 5)
 
         for car in self.cars:
+            if self.params['show_actions']:
+                p0 = car.pos*mt2px
+                pg.draw.circle(surf, (0,0,200),  (p0[0],p0[1]), car.radius*mt2px, width=1)
+
             car.draw(surf, mt2px)
             if self.params['show_actions'] and car.actions is not None:
                 text = f"{car.actions[0]:4.1f},{car.actions[1]:4.1f}; v:{np.linalg.norm(car.vel):.0f}"
                 txt_surf = self.font.render(text, False, (0, 0, 0))                                
                 surf.blit(txt_surf, (car.pos[0]*mt2px,car.pos[1]*mt2px))
-                if len(car.actions) == 5:
+                if len(car.actions) >= 5:
                     p0 = car.pos*mt2px
-                    p1 = p0 + car.actions[2:]*(2*car.radius*mt2px)
-                    pg.draw.line(surf, (255,0,0), (p0[0],p0[1]), (p1[0],p1[1]), 2)
+                    p1 = p0 + car.actions[2:5]*(car.radius*mt2px)
+                    pg.draw.line(surf, (200,0,0), (p0[0],p0[1]), (p1[0],p1[1]), 2)
+                    if len(car.actions) >= 8:
+                        p1 = p0 + car.actions[5:8]*(car.radius*mt2px)
+                        pg.draw.line(surf, (0,200,0), (p0[0],p0[1]), (p1[0],p1[1]), 2)
+                    if len(car.actions) >= 11:
+                        p1 = p0 + car.actions[8:11]*(car.radius*mt2px)
+                        pg.draw.line(surf, (0,0,200), (p0[0],p0[1]), (p1[0],p1[1]), 2)
+
                 #p0 = car.pos*mt2px
                 #p1 = p0 + car.acc*(5*car.radius*mt2px)
                 #g.draw.line(surf, (0,0,255), (p0[0],p0[1]), (p1[0],p1[1]), 2)
@@ -479,8 +497,10 @@ class Environment:
     #---------------------------------------------------------------------------
 
     def get_info(self):
-        times = ", ".join([f"{self.tot_phys_time/(n/sum(self.kinds==k)):.3f}" if n else "???"  for k,n in enumerate(self.tot_targets) ])
-        return f'fps: {0. if self.fps is None else self.fps:.1f} ({self.tot_phys_time/self.tot_phys_run:.3f} sec);  time: {self.tot_phys_time:.0f} sec;  {self.tot_phys_run} steps;  targets: {self.tot_targets}; time: {times}s per kind'
+        cols  = (self.num_collisions / self.tot_phys_time) / len(self.kinds)
+        rews  = ", ".join([f"{(r/self.tot_phys_time)/sum(self.kinds==k):.2f}" for k,r in enumerate(self.tot_rewards) ])
+        times = ", ".join([f"{self.tot_phys_time/(n/sum(self.kinds==k)):.2f}" if n else "???"  for k,n in enumerate(self.tot_targets) ])
+        return f'fps: {0. if self.fps is None else self.fps:.1f} ({self.tot_phys_time/self.tot_phys_run:.3f} sec);  time: {self.tot_phys_time:.0f} sec;  {self.tot_phys_run} steps; collisions: {cols:.3f}/s  targets: {self.tot_targets}; times: [{times}]s rewards: [{rews}]/s per kind'
     #---------------------------------------------------------------------------
 
     def set_caption(self):

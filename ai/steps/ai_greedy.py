@@ -15,8 +15,9 @@ class AI_Greedy:
         self.ai_kind = init_state['ai_kind'] 
         self.kinds   = init_state['kind'] 
         self.t_tot   = 0
-        self.times   = np.zeros((len(self.kinds),))  
-        self.v_avr   = np.zeros((len(self.kinds),))  # average agent speed
+        num = (self.ai_kind == self.kinds).sum()
+        self.times   = np.zeros((num,))  
+        self.v_avr   = np.zeros((num,))                # average agent speed
         self.beta    = 0.99                           # EMA speed averaging
     #---------------------------------------------------------------------------
 
@@ -27,10 +28,10 @@ class AI_Greedy:
         pos, vel, dir, t_pos = state['pos'], state['vel'], state['dir'], state['target_pos']
         self.times += state['dt']
         self.t_tot += state['dt']
-        self.v_avr = self.v_avr*self.beta + (1-self.beta)*np.linalg.norm(vel, axis=-1)
-
+        
         my = (self.ai_kind == self.kinds)
         
+        self.v_avr = self.v_avr*self.beta + (1-self.beta)*np.linalg.norm(vel[my], axis=-1)
         action = np.zeros( (len(pos),5) )
         
         my_action = self.policy(t_pos[my], pos[my], vel[my], dir[my])
@@ -50,7 +51,7 @@ class AI_Greedy:
 
         action = np.ones( (len(v), 5) )
 
-        si = n[:,0] * dir[:,1] - n[:,1] * dir[:,0]  # rotate
+        si = dir[:,0] * n[:,1] - dir[:,1] * n[:,0]  # rotate
         co = (dir * n).sum(axis=-1)                 # cos with target
 
         if self.algo == 0:
@@ -63,11 +64,11 @@ class AI_Greedy:
 
         elif self.algo == 2:                                    
             action[si < 0, 1] = -1
-            action[(dist < 5) & (co < 0.3), 1] *= -1
+            action[(vel > 5) & (dist < 10) & (co < 0.3), 1] *= -1            
 
         elif self.algo == 3:        
             action[si < 0, 1] = -1
-            action[(dist < 5) & (co < 0.3), 1] *= -1
+            action[(vel > 5) & (dist < 10) & (co < 0.3), 1] *= -1            
 
             if self.t_tot > 3:
                 self.times[ self.v_avr < 0.5 ] = -3.

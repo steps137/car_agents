@@ -172,8 +172,8 @@ class Environment:
         segs.append( [[0.,h, 0.],  [0.,0.,0.] ] )
 
         if  self.level > 0:      # segments inside space
-            segs.append( [[w/2, 3*h/14, 0.],  [w/2,  6*h/14, 0.] ] )
-            segs.append( [[w/2, 8*h/14, 0.],  [w/2, 11*h/14, 0.] ] )
+            segs.append( [[w/2, 3*h/14, 0.],  [w/2,  5*h/14, 0.] ] )
+            segs.append( [[w/2, 9*h/14, 0.],  [w/2, 11*h/14, 0.] ] )
 
         self.segs = np.array(segs)    # (M,2,3)
     #---------------------------------------------------------------------------
@@ -416,7 +416,7 @@ class Environment:
 
         if self.params['show_actions'] and self.font is None:
             pg.font.init()
-            self.font = pg.font.SysFont('Comic Sans MS', 16)
+            self.font = pg.font.SysFont('arial', 16)
 
         self.draw_ground (surf, W,H)
         #if self.camera == 1:
@@ -439,19 +439,30 @@ class Environment:
 
             car.draw(surf, mt2px)
             if self.params['show_actions'] and car.actions is not None:
-                text = f"{car.actions[0]:4.1f},{car.actions[1]:4.1f}; v:{np.linalg.norm(car.vel):.0f}"
-                txt_surf = self.font.render(text, False, (0, 0, 0))                                
-                surf.blit(txt_surf, (car.pos[0]*mt2px,car.pos[1]*mt2px))
+                p = (car.pos-car.dir)*mt2px
+                text = f"{car.actions[0]:4.1f}"
+                txt_surf = self.font.render(text, True, (0, 0, 255) if car.actions[0] > 0 else (255, 0, 0))       
+                surf.blit(txt_surf, (p[0],p[1]))
+
+                text = f"{car.actions[1]:4.1f}"
+                txt_surf = self.font.render(text, True, (0, 0, 255) if car.actions[1] > 0 else (255, 0, 0))                                
+                surf.blit(txt_surf, (p[0],p[1]+16))
+
+                text = f"v:{np.linalg.norm(car.vel):.0f}"
+                txt_surf = self.font.render(text, True, (0, 0, 0))                                
+                surf.blit(txt_surf, (p[0],p[1]+32))
+
+
                 if len(car.actions) >= 5:
                     p0 = car.pos*mt2px
-                    p1 = p0 + car.actions[2:5]*(car.radius*mt2px)
-                    pg.draw.line(surf, (200,0,0), (p0[0],p0[1]), (p1[0],p1[1]), 2)
                     if len(car.actions) >= 8:
                         p1 = p0 + car.actions[5:8]*(car.radius*mt2px)
                         pg.draw.line(surf, (0,200,0), (p0[0],p0[1]), (p1[0],p1[1]), 2)
                     if len(car.actions) >= 11:
                         p1 = p0 + car.actions[8:11]*(car.radius*mt2px)
                         pg.draw.line(surf, (0,0,200), (p0[0],p0[1]), (p1[0],p1[1]), 2)
+                    p1 = p0 + car.actions[2:5]*(car.radius*mt2px)
+                    pg.draw.line(surf, (200,0,0), (p0[0],p0[1]), (p1[0],p1[1]), 3)
 
                 #p0 = car.pos*mt2px
                 #p1 = p0 + car.acc*(5*car.radius*mt2px)

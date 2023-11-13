@@ -7,7 +7,7 @@ class AI_Greedy:
     For a description of the algorithms, see https://qudata.com/ml/ru/agents/car_01.html
     """
 
-    def __init__(self, algo = 0) -> None:        
+    def __init__(self, algo = 3) -> None:        
         self.algo = algo                       # kind of the system control
 
     def reset(self, init_state, state):

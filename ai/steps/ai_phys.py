@@ -9,15 +9,15 @@ class AI_Phys:
         self.car_tar_lm_r   = 1.
         self.car_tar_lm_v   = 0.
 
-        self.car_car_lm_r   = 0
+        self.car_car_lm_r   = 1
         self.car_car_lm_v   = 0.
         self.car_car_mu     = 3.
         self.car_car_a      = 2.
 
-        self.car_seg_mu     = 10.
-        self.car_seg_a      = 5
-        self.car_seg_lm     = 5.
-        self.car_seg_lm_v   = 1.
+        self.car_seg_lm     = 1.
+        self.car_seg_lm_v   = 2.
+        self.car_seg_mu     = 3.
+        self.car_seg_a      = 4
 
     #---------------------------------------------------------------------------
 
@@ -45,7 +45,7 @@ class AI_Phys:
 
         f1, f2, f3 = self.features(pos, vel, tar_pos, eps=1e-8)
         f =     f1
-        #f = f + f2
+        f = f + f2
         f = f + f3
 
         desired_dir =  f #* state['dt']          # desired direction
@@ -61,8 +61,8 @@ class AI_Phys:
         my_action = self.policy(desired_dir, vel, dir, pos, tar_pos).numpy()        
         
         action[my] = my_action[:]
-        action[my,2:5] = f1[my].clone()    # target direction
-        action[my,5:8] = f [my].clone()    # target direction
+        action[my,2:5] = f[my].clone()    # target direction
+        action[my,5:8] = f1[my].clone()    # target direction
         action[my,8: ] = f3[my].clone()    # target direction
         return action
     #---------------------------------------------------------------------------
@@ -184,6 +184,8 @@ class AI_Phys:
 
         action[si < 0, 1] = -1
         action[(speed > 5) & (dist < 10) & (co < 0.3), 1] *= -1        
+
+        #action[(speed > 10), 0] = 0
 
         if self.t_tot > 3:
             self.times[ self.v_avr < 0.5 ] = -3.

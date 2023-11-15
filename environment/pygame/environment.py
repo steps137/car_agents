@@ -3,6 +3,12 @@ import time
 import pygame as pg
 from .car import Car, CarColors
 
+class Target:
+    def __init__(self, pos=None, vel=None):
+        self.pos = pos
+        self.vel = vel
+
+
 class Environment:
 
     REWARD_TARGET  = 100  # reward for a given car for reaching a target point
@@ -11,7 +17,7 @@ class Environment:
 
     IMG_GROUND = "environment/pygame/img/ground.png"
     IMG_TARGET = "environment/pygame/img/target.png"
-    IMG_ICON   = "environment/pygame/img/icon.png"
+    IMG_ICON   = "environment/pygame/img/icon.png"    
 
     def __init__(self, ai=None, n_cars=20, w=100, h=50, d=100, mt2px=10, level=0):
         """
@@ -44,8 +50,10 @@ class Environment:
             'all_targets_are_same': False, # the coordinates of all targets are the same
             'show_target_line':     False, # show line from car to target
             'show_actions':         False, # show current car actions
-            'gap':                  4      # distance in meters of the target from the boundaries of space
-        }
+            'moving_targets':       True,  # random moving targets
+            'gap':                  4,     # distance in meters of the target from the boundaries of space
+            'max_target_vel':       5,     # maximum target speed     
+        }        
 
         self.ai     = self.set_ai_dict(ai, n_cars)
 
@@ -77,7 +85,10 @@ class Environment:
             elif  k == 'all_targets_are_same': self.params['all_targets_are_same'] = v
             elif  k == 'show_target_line':     self.params['show_target_line']     = v
             elif  k == 'show_actions':         self.params['show_actions']         = v
+            elif  k == 'moving_targets':       self.params['moving_targets']       = v            
             elif  k == 'gap':                  self.params['gap']                  = v
+            elif  k == 'max_target_vel':       self.params['max_target_vel']       = v
+            
             else: print(f"!!! Warning: unknown parameter {k} = {v}")                
     #---------------------------------------------------------------------------
 
@@ -127,7 +138,8 @@ class Environment:
         t_pos = np.empty(shape=(self.n_cars, 3), dtype=np.float32)
         t_vel = np.zeros(shape=(self.n_cars, 3), dtype=np.float32)
         for i, target in enumerate(self.targets):
-            t_pos[i] = target.copy()
+            t_pos[i] = target.pos.copy()
+            t_vel[i] = target.vel.copy()
 
         state = {
             'dt':         dt,
@@ -206,18 +218,24 @@ class Environment:
 
     def get_random_target(self, w, h):
         gap = self.params['gap']
+        vel = np.zeros((3,))
+        if self.params['moving_targets']:
+            vel = np.random.randn(3)
+            vel[2] = 0.
+            vel *= self.params['max_target_vel']/(np.linalg.norm(-1, keepdims=True)+1e-8)
+
         for _ in range(100):
-            tar = np.array([gap+np.random.rand()*(w-2*gap), gap+np.random.rand()*(h-2*gap), 0.])
+            pos = np.array([gap+np.random.rand()*(w-2*gap), gap+np.random.rand()*(h-2*gap), 0.])
             ok = True
             for i in range(4, len(self.segs)):  # only internal segments
-                r = self.r_seg(tar, self.segs[i])
+                r = self.r_seg(pos, self.segs[i])
                 if np.linalg.norm(r) < gap:
                     ok = False
                     break
             if ok:
-                return tar
+                return Target(pos, vel)
 
-        return tar
+        return Target(pos, vel)
     #---------------------------------------------------------------------------
 
     def step(self, action, dt):
@@ -247,9 +265,10 @@ class Environment:
         if dt < 1e-8: return
         for car in self.cars:
             car.phys(dt)
-            self.collisions_segs(car)
+            self.collisions_segs(car)                
 
-        self.collect_targets()
+        self.tragets_phys(dt)
+        self.collect_targets()        
 
         if self.params['car_collision']:
             for i in range(self.n_cars):
@@ -265,12 +284,23 @@ class Environment:
         self.calc_fps()
     #---------------------------------------------------------------------------
 
+    def tragets_phys(self, dt):
+        D = 1
+        for tar in self.targets:
+            tar.pos += tar.vel*dt
+            if tar.pos[0] < -D:              tar.pos[0] = self.space_w - D
+            if tar.pos[0] > self.space_w+D:  tar.pos[0] = D
+            if tar.pos[1] < -D:              tar.pos[1] = self.space_h - D
+            if tar.pos[1] > self.space_h+D:  tar.pos[1] = D            
+
+    #---------------------------------------------------------------------------
+
     def collect_targets(self):
         """ Collecting car targets"""
         new_target = None
         for i, (car,target) in enumerate(zip(self.cars, self.targets)):
             pos = car.pos
-            if (pos-target)@(pos-target) < car.radius**2:
+            if np.linalg.norm(pos-target.pos) < car.radius:
                 new_target  = self.get_random_target(self.space_w, self.space_h)
                 self.targets[i] = new_target
                 self.tot_targets[car.kind] += 1
@@ -279,7 +309,8 @@ class Environment:
 
         if self.params['all_targets_are_same'] and new_target is not None:
             for i in range(len(self.targets)):
-                self.targets[i] = new_target.copy()
+                self.targets[i].pos = new_target.pos.copy()
+                self.targets[i].vel = new_target.vel.copy()
     #---------------------------------------------------------------------------
 
     def collisions_segs(self, car):
@@ -424,7 +455,7 @@ class Environment:
         #    pg.draw.line(surf, (0,0,0), (p0[0],p0[1]), (p1[0],p1[1]), 1)
         if self.params['show_target_line']:
             for car, target in zip(self.cars, self.targets):
-                p, tp = car.pos * mt2px, target * mt2px
+                p, tp = car.pos * mt2px, target.pos * mt2px
                 pg.draw.line(surf, (0,0,0), (p[0],p[1]), (tp[0],tp[1]), 1)
         self.draw_targets(surf, mt2px)
 
@@ -500,11 +531,11 @@ class Environment:
 
         for i, target in enumerate(self.targets):
             s = pg.transform.scale( self.img_target, ( 2*mt2px, 2*mt2px))
-            rect = s.get_rect(center=(target[0]*mt2px, target[1]*mt2px))
+            rect = s.get_rect(center=(target.pos[0]*mt2px, target.pos[1]*mt2px))
             surf.blit(s, rect)
             color =  CarColors.colors[self.cars[i].kind % len(CarColors.colors)]
             if not self.params['all_targets_are_same']:
-                pg.draw.circle(surf, color, (target[0]*mt2px, target[1]*mt2px), 0.4*mt2px)
+                pg.draw.circle(surf, color, (target.pos[0]*mt2px, target.pos[1]*mt2px), 0.4*mt2px)
     #---------------------------------------------------------------------------
 
     def get_info(self):
@@ -520,8 +551,9 @@ class Environment:
         elif cur - self.prev_time_out > 0.1:
             car = self.cars[0]
             v = np.linalg.norm(car.vel)
-            if self.tot_phys_run:
-                pg.display.set_caption(f' vel ={v:6.1f} m/sec ={v*3.600:6.1f} km/h | {self.get_info()}')
+            if self.tot_phys_run:                
+                d = np.linalg.norm(self.cars[0].pos - self.targets[0].pos )
+                pg.display.set_caption(f' vel ={v:6.1f} m/sec ={v*3.600:6.1f} km/h  d={d:.1f} | {self.get_info()}')
             self.prev_time_out = cur
     #---------------------------------------------------------------------------
 

@@ -7,7 +7,8 @@ class AI_Phys:
         self.car_R          = 2.
 
         self.car_tar_lm_r   = 1.
-        self.car_tar_lm_v   = 0.
+        self.car_tar_lm_v   = 10
+        self.car_tar_v_max  = 10
 
         self.car_car_lm_r   = 1
         self.car_car_lm_v   = 0.
@@ -41,12 +42,12 @@ class AI_Phys:
         Receives state and reward, returns simple actions.
         """
         pos, vel, dir = tensor(state['pos']), tensor(state['vel']), tensor(state['dir'])
-        tar_pos  = tensor(state['target_pos'])
+        tar_pos, tar_vel  = tensor(state['target_pos']), tensor(state['target_vel'])
 
-        f1, f2, f3 = self.features(pos, vel, tar_pos, eps=1e-8)
+        f1, f2, f3 = self.features(pos, vel, tar_pos, tar_vel, eps=1e-8)
         f =     f1
-        f = f + f2
-        f = f + f3
+        #f = f + f2
+        #f = f + f3
 
         desired_dir =  f #* state['dt']          # desired direction
 
@@ -67,35 +68,38 @@ class AI_Phys:
         return action
     #---------------------------------------------------------------------------
 
-    def features(self, pos, vel, tar_pos, eps=1e-8):
+    def features(self, pos, vel, tar_pos, tar_vel, eps=1e-8):
         """
         Create features for Decision Model
         return forces f1, f2, f3: (N,3)
         """
-        f1 = self.force_target (pos, vel, tar_pos, eps)
+        f1 = self.force_target (pos, vel, tar_pos, tar_vel, eps)
         f2 = self.force_car    (pos, vel, eps)
         f3 = self.force_segment(pos, vel, eps)        
 
         return f1, f2, f3                                   # (N,3)
     #---------------------------------------------------------------------------
 
-    def force_target(self, pos, vel, tar_pos, eps):
+    def force_target(self, pos, vel, tar_pos, tar_vel, eps):
         """ 
         Args:   pos, vel, tar_pos: (N,3)
         Return: force to target: (N,3)        
         """
         N = len(pos)
         r = tar_pos - pos                                   # (N,3) from car to target pos        
-        dist = r.norm(dim=-1, keepdim=True)                 # (N,3) dist to target
+        dist = r.norm(dim=-1, keepdim=True)                 # (N,3) dist to target        
+        f1 = r / ( dist + eps)                              # unit vector to target
+        
+        k = tar_vel - f1 * (f1*tar_vel).sum(-1).view(N,1)
+        kn = k.norm(dim=-1).view(N,1)
 
-        f1 = r / ( dist + eps)                                # unit vector to target
+        v = torch.empty(N,1).fill_(20)                      # max speed
+        v = torch.where( v > kn, v, kn)
+        k = k / (v + eps)
 
-        # (N,3)  v x [v x r]
-        f2 = vel*(vel*r).sum(dim=-1).view(N,1) - r*(vel*vel).sum(dim=-1).view(N,1)              
-        f2 = f2 / ( dist + eps)
-        f2 = f2 / ( vel.norm(dim=-1, keepdim=True)**2 + eps)
+        f = f1 * (1-(k*k).sum(-1).view(N,1))**0.5 + k
+        return self.car_tar_lm_r * f
 
-        return self.car_tar_lm_r * f1 - self.car_tar_lm_v * f2
     #---------------------------------------------------------------------------
 
     def force_car(self, pos, vel, eps):

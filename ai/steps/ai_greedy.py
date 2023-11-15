@@ -70,10 +70,14 @@ class AI_Greedy:
             action[si < 0, 1] = -1
             action[(vel > 5) & (dist < 10) & (co < 0.3), 1] *= -1            
 
-            if self.t_tot > 3:
+            if self.t_tot > 5:
                 self.times[ self.v_avr < 0.5 ] = -3.
                 action[self.times < 0, 0] = -1
                 action[self.times < 0, 1] =  0
+        
+        else:
+            print(f"Uncnown algo {self.algo}")
+            exit()
 
         action[:, 2:] = n.copy()                    # target direction
         return action

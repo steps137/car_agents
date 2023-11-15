@@ -8,18 +8,18 @@ from ai.steps.ai_log    import AI_Log
 
 def main():
     """ Easy launch of the environment. """    
-    ai={'car': {'ai':AI_Greedy(3), 'num':4} }
-    #ai={'car': {'ai':AI_Phys(), 'num':20} }
+    #ai={'car': {'ai':AI_Greedy(1), 'num':4} }
+    ai={'car': {'ai':AI_Phys(), 'num':4} }
     #ai={'algo0': {'ai':AI_Greedy(0), 'num':2}, 'algo1': {'ai':AI_Greedy(1),  'num':2}}
     #ai={'car': {'ai':AI_Greedy(), 'num':2}, 'rnd': {'ai':AI_Random(10),  'num':2} }
     #ai={'car': {'ai':AI_Log(0), 'num':1} }
     
     env = Environment(ai=ai, w=60, h=40,  mt2px=20, level=0)   # small space
     #env = Environment(ai=ai, w=240, h=160,  mt2px=5, level=0) # large space
-    env.set_params(car_collision = False, seg_collision = True, show_target_line = True, show_actions=True, all_targets_are_same=False)
+    env.set_params(car_collision = False, seg_collision = False, moving_targets=True, show_target_line = True, show_actions=True,  all_targets_are_same=False)
 
-    env.run(draw_fps=40, phys_fps=40, speed_up=False, steps=1_000_000)  # normal speed
-    #env.run(draw_fps=1, phys_fps=40, speed_up=True, steps=50_000)   # accelerated physics
+    #env.run(draw_fps=40, phys_fps=40, speed_up=False, steps=1_000_000)  # normal speed
+    env.run(draw_fps=1, phys_fps=40, speed_up=True, steps=50_000)   # accelerated physics
 
 #-------------------------------------------------------------------------------
 

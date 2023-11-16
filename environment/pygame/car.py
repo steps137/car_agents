@@ -49,6 +49,7 @@ class Car:
 
         self.force   = 0           # current gas-brake force
         self.actions = None        # current actions        
+        self.info    = None
 
         self.model   = CarModelNormal()
 
@@ -59,7 +60,7 @@ class Car:
     #---------------------------------------------------------------------------
 
     def action(self, act, dt):
-        df, dw = act[0], act[1]
+        df, dw = min(1., max(-1., act[0])), min(1., max(-1., act[1]))
         # turn the wheels (w11 - angle left-front, a12 - right-front wheel):
         self.w11 += self.model.steering_sensitivity * dt * dw * np.pi/180   # not an instant turn 
         self.w11 = max( min(self.w11, self.model.w_max), -self.model.w_max) # angle limitation

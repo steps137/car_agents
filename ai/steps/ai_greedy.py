@@ -17,8 +17,9 @@ class AI_Greedy:
         self.t_tot   = 0
         num = (self.ai_kind == self.kinds).sum()
         self.times   = np.zeros((num,))  
-        self.v_avr   = np.zeros((num,))                # average agent speed
+        self.v_avr   = np.zeros((num,))               # average agent speed
         self.beta    = 0.99                           # EMA speed averaging
+        
     #---------------------------------------------------------------------------
 
     def step(self, state, reward=None, done=None):
@@ -32,11 +33,12 @@ class AI_Greedy:
         my = (self.ai_kind == self.kinds)
         
         self.v_avr = self.v_avr*self.beta + (1-self.beta)*np.linalg.norm(vel[my], axis=-1)
-        action = np.zeros( (len(pos),5) )
+        action = np.zeros( (len(pos),2) )
         
         my_action = self.policy(t_pos[my], pos[my], vel[my], dir[my])
 
         action[my] = my_action[:]
+        
         return action 
     #---------------------------------------------------------------------------    
 
@@ -49,7 +51,7 @@ class AI_Greedy:
         vel = np.linalg.norm(v, axis=-1)                      # velocity
         v /= (vel.reshape(-1,1)+eps)                          # unit vector of velocity        
 
-        action = np.ones( (len(v), 5) )
+        action = np.ones( (len(v), 2) )
 
         si = dir[:,0] * n[:,1] - dir[:,1] * n[:,0]  # rotate
         co = (dir * n).sum(axis=-1)                 # cos with target
@@ -78,8 +80,7 @@ class AI_Greedy:
         else:
             print(f"Uncnown algo {self.algo}")
             exit()
-
-        action[:, 2:] = n.copy()                    # target direction
+        
         return action
 
 

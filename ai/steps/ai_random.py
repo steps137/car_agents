@@ -1,9 +1,11 @@
 import numpy as np
 
 class AI_Random:    
-    def __init__(self, ticks=10) -> None:
-        self.ticks = ticks or 10
-        self.cur_tick  = 0        
+    def __init__(self, ticks_df=50, ticks_dw=10) -> None:
+        self.ticks_df = ticks_df
+        self.ticks_dw = ticks_dw
+        self.cur_tick_df  = 0        
+        self.cur_tick_dw  = 0        
         self.actions = None 
 
     def reset(self, init_state, state):
@@ -16,7 +18,16 @@ class AI_Random:
         Receives state and reward, returns random actions.
         To stop it from twitching so much, we change the action every 10 calls.
         """        
-        if self.cur_tick % self.ticks == 0 or self.actions is None:
-            self.actions = 2. * np.random.randint(0, 2, size = (self.n_cars, 2)) - 1.
-        self.cur_tick += 1
+        if self.actions is None:
+            self.actions = np.zeros((self.n_cars, 2))
+
+        if self.cur_tick_df % self.ticks_df == 0:
+            self.actions[:, 0] = 2. * np.random.randint(0, 2, size = (self.n_cars, )) - 1.
+
+        if self.cur_tick_dw % self.ticks_dw == 0:
+            self.actions[:, 1] = 2. * np.random.randint(0, 2, size = (self.n_cars, )) - 1.
+
+        self.cur_tick_df += 1
+        self.cur_tick_dw += 1
+
         return self.actions

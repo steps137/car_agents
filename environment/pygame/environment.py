@@ -50,7 +50,7 @@ class Environment:
             'all_targets_are_same': False, # the coordinates of all targets are the same
             'show_target_line':     False, # show line from car to target
             'show_actions':         False, # show current car actions
-            'moving_targets':       True,  # random moving targets
+            'moving_targets':       False,  # random moving targets
             'gap':                  4,     # distance in meters of the target from the boundaries of space
             'max_target_vel':       5,     # maximum target speed     
         }        
@@ -238,16 +238,18 @@ class Environment:
         return Target(pos, vel)
     #---------------------------------------------------------------------------
 
-    def step(self, action, dt):
+    def step(self, action, dt, vectors=None):
         """ Execute actions of all agents  """
-        for a,car in zip(action, self.cars):
+        vectors = vectors if vectors is not None else np.zeros((len(action),3))
+        for a,v,car in zip(action, vectors, self.cars):
             car.action(a, dt)
+            car.info = {'vec': v}
         self.reward = np.zeros((self.n_cars,))
         self.done   = np.zeros((self.n_cars,), dtype=bool)
 
         self.phys(dt)                                      # physics processing
 
-        state =  self.state(dt)
+        state = self.state(dt)
         return state, self.reward , self.done
 
     #---------------------------------------------------------------------------
@@ -405,12 +407,21 @@ class Environment:
                 #dt = 1/phys_fps if speed_up else cur - beg_phys
                 dt = 1/phys_fps
                 if not self.pause:
-                    action = np.zeros(shape=(self.n_cars, 2+3*3))
+                    action  = np.zeros(shape=(self.n_cars, 2))
+                    vectors = np.zeros(shape=(self.n_cars, 30))       
+                    n_vecs = 0             
                     for i, (name,ai) in enumerate(self.ai.items()):
                         if ai['ai'] is not None:
                             a = ai['ai'].step(s, reward=self.reward.copy(), done=self.done.copy())
-                            action[i==self.kinds, : a.shape[-1]] = a[i==self.kinds,:]
-                    s, rew, done = self.step(action, dt)
+                            action[i==self.kinds, : ] = a[i==self.kinds,:]
+
+                            if hasattr(ai['ai'], 'info'):    # debug info
+                                if 'vec' in ai['ai'].info:   # vectors from car center
+                                    vec = ai['ai'].info['vec'][i==self.kinds,:]
+                                    vectors[i==self.kinds, : vec.shape[-1] ] = vec
+                                    n_vecs = max(n_vecs, vec.shape[-1])
+                    vectors = vectors[:, : n_vecs]
+                    s, rew, done = self.step(action, dt, vectors)
                     iter += 1
                 beg_phys = time.time()                
 
@@ -482,18 +493,14 @@ class Environment:
                 text = f"v:{np.linalg.norm(car.vel):.0f}"
                 txt_surf = self.font.render(text, True, (0, 0, 0))                                
                 surf.blit(txt_surf, (p[0],p[1]+32))
-
-
-                if len(car.actions) >= 5:
+                
+                if car.info is not None and len(car.info['vec']) >= 0:
                     p0 = car.pos*mt2px
-                    if len(car.actions) >= 8:
-                        p1 = p0 + car.actions[5:8]*(car.radius*mt2px)
-                        pg.draw.line(surf, (0,200,0), (p0[0],p0[1]), (p1[0],p1[1]), 2)
-                    if len(car.actions) >= 11:
-                        p1 = p0 + car.actions[8:11]*(car.radius*mt2px)
-                        pg.draw.line(surf, (0,0,200), (p0[0],p0[1]), (p1[0],p1[1]), 2)
-                    p1 = p0 + car.actions[2:5]*(car.radius*mt2px)
-                    pg.draw.line(surf, (200,0,0), (p0[0],p0[1]), (p1[0],p1[1]), 3)
+                    colors = [(200,0,0), (0,200,0), (0,0,200), (0,200,200), (200,0,200), (200,200,0)]
+                    for i in range(len(car.info['vec']) // 3 - 1, -1, -1):
+                        color = colors[ i % len(colors)]                    
+                        p1 = p0 + car.info['vec'][3*i: 3*i+3]*(car.radius*mt2px)
+                        pg.draw.line(surf, color, (p0[0],p0[1]), (p1[0],p1[1]), 3 if i==0 else 2)
 
                 #p0 = car.pos*mt2px
                 #p1 = p0 + car.acc*(5*car.radius*mt2px)

@@ -30,16 +30,18 @@ class AI_Phys:
         self.seg_p1  = tensor(init_state['string'][:,0,:])  # begin and end
         self.seg_p2  = tensor(init_state['string'][:,1,:])  # of segment
 
-        self.t_tot   = 0
-        num = (self.ai_kind == self.kinds).sum()
-        self.times   = np.zeros((num,))  
-        self.v_avr   = np.zeros((num,))                # average agent speed
-        self.beta    = 0.99                           # EMA speed averaging        
+        self.t_tot   = 0        
+        self.times   = np.zeros((self.N,))  
+        self.v_avr   = np.zeros((self.N,))                # average agent speed
+        self.beta    = 0.99                               # EMA speed averaging     
+
+        self.info    = {}   
     #---------------------------------------------------------------------------
 
     def step(self, state, reward=None, done=None):
         """
         Receives state and reward, returns simple actions.
+        my для простоты не используем (все со всеми)
         """
         pos, vel, dir = tensor(state['pos']), tensor(state['vel']), tensor(state['dir'])
         tar_pos, tar_vel  = tensor(state['target_pos']), tensor(state['target_vel'])
@@ -53,18 +55,14 @@ class AI_Phys:
 
         self.times += state['dt']
         self.t_tot += state['dt']
-
-        my = (self.ai_kind == self.kinds)
-        action = np.zeros( (len(pos), 2+3*3) )
-
-        self.v_avr = self.v_avr*self.beta + (1-self.beta)*np.linalg.norm(vel[my], axis=-1)
-
-        my_action = self.policy(desired_dir, vel, dir, pos, tar_pos).numpy()        
         
-        action[my] = my_action[:]
-        action[my,2:5] = f[my].clone()    # target direction
-        action[my,5:8] = f1[my].clone()    # target direction
-        action[my,8: ] = f3[my].clone()    # target direction
+        action = np.zeros( (len(pos), 2) )
+
+        self.v_avr = self.v_avr*self.beta + (1-self.beta)*np.linalg.norm(vel, axis=-1)
+
+        action = self.policy(desired_dir, vel, dir, pos, tar_pos).numpy()        
+                
+        self.info = { 'vec': torch.hstack([f.clone(), f1.clone(), f2.clone(), f3.clone()]).numpy()}
         return action
     #---------------------------------------------------------------------------
 
@@ -174,7 +172,7 @@ class AI_Phys:
     def policy(self,  desired_dir, vel, dir, pos, tar_pos, eps=1e-8):
         """ 
         """
-        action = torch.ones( (len(vel), 11) )
+        action = torch.ones( (len(vel), 2) )
 
         r = tar_pos - pos                          # radius vector to target
         dist =  r.norm(dim=-1)                     # distance to target

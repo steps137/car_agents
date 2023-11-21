@@ -11,9 +11,10 @@ class Target:
 
 class Environment:
 
-    REWARD_TARGET  = 100  # reward for a given car for reaching a target point
-    REWARD_CAR_CAR = -50  # reward (punishment) for car collision
-    REWARD_CAR_SEG = -1   # reward (punishment) for a collision between a car and a segment
+    REWARD_TARGET  =  100  # reward for a given car for reaching a target point
+    REWARD_CAR_CAR = -100  # reward (punishment) for car collision
+    REWARD_CAR_SEG =   -1  # reward (punishment) for a collision between a car and a segment
+    REWARD_TIME    =    0
 
     IMG_GROUND = "environment/pygame/img/ground.png"
     IMG_TARGET = "environment/pygame/img/target.png"
@@ -50,9 +51,11 @@ class Environment:
             'all_targets_are_same': False, # the coordinates of all targets are the same
             'show_target_line':     False, # show line from car to target
             'show_actions':         False, # show current car actions
-            'moving_targets':       False,  # random moving targets
+            'moving_targets':       False, # random moving targets
             'gap':                  4,     # distance in meters of the target from the boundaries of space
-            'max_target_vel':       5,     # maximum target speed     
+            'max_target_vel':      20,     # maximum target speed     
+            'min_target_vel':       0,     # minimum target speed     
+            'tar_seg_collision':   True,
         }        
 
         self.ai     = self.set_ai_dict(ai, n_cars)
@@ -88,7 +91,10 @@ class Environment:
             elif  k == 'moving_targets':       self.params['moving_targets']       = v            
             elif  k == 'gap':                  self.params['gap']                  = v
             elif  k == 'max_target_vel':       self.params['max_target_vel']       = v
+            elif  k == 'min_target_vel':       self.params['min_target_vel']       = v
+            elif  k == 'tar_seg_collision':    self.params['tar_seg_collision']    = v
             
+
             else: print(f"!!! Warning: unknown parameter {k} = {v}")                
     #---------------------------------------------------------------------------
 
@@ -222,7 +228,10 @@ class Environment:
         if self.params['moving_targets']:
             vel = np.random.randn(3)
             vel[2] = 0.
-            vel *= self.params['max_target_vel']/(np.linalg.norm(-1, keepdims=True)+1e-8)
+            vel /= (np.linalg.norm(-1, keepdims=True)+1e-8)
+            mi = min(self.params['min_target_vel'], self.params['max_target_vel'])
+            ma = max(self.params['min_target_vel'], self.params['max_target_vel'])            
+            vel *= (ma - mi) * np.random.random() + mi
 
         for _ in range(100):
             pos = np.array([gap+np.random.rand()*(w-2*gap), gap+np.random.rand()*(h-2*gap), 0.])
@@ -244,7 +253,7 @@ class Environment:
         for a,v,car in zip(action, vectors, self.cars):
             car.action(a, dt)
             car.info = {'vec': v}
-        self.reward = np.zeros((self.n_cars,))
+        self.reward = np.full((self.n_cars,), fill_value=Environment.REWARD_TIME)
         self.done   = np.zeros((self.n_cars,), dtype=bool)
 
         self.phys(dt)                                      # physics processing
@@ -286,14 +295,25 @@ class Environment:
         self.calc_fps()
     #---------------------------------------------------------------------------
 
-    def tragets_phys(self, dt):
-        D = 1
+    def tragets_phys(self, dt, eps=1e-8):
+        D = 1        
         for tar in self.targets:
             tar.pos += tar.vel*dt
-            if tar.pos[0] < -D:              tar.pos[0] = self.space_w - D
-            if tar.pos[0] > self.space_w+D:  tar.pos[0] = D
-            if tar.pos[1] < -D:              tar.pos[1] = self.space_h - D
-            if tar.pos[1] > self.space_h+D:  tar.pos[1] = D            
+
+            if self.params['moving_targets']:
+                if self.params['tar_seg_collision']:
+                    for seg in self.segs:
+                        r = self.r_seg(tar.pos, seg)
+                        d = np.linalg.norm(r)         # dist to segment
+                        if d <= D:
+                            tar.pos -= r* (D/d - 1)
+                            tar.vel = tar.vel - 2*(tar.vel @ r)*r / (d + eps)
+
+                # на всякий случай:
+                if tar.pos[0] < -D:              tar.pos[0] = self.space_w - D
+                if tar.pos[0] > self.space_w+D:  tar.pos[0] = D
+                if tar.pos[1] < -D:              tar.pos[1] = self.space_h - D
+                if tar.pos[1] > self.space_h+D:  tar.pos[1] = D            
 
     #---------------------------------------------------------------------------
 
@@ -315,7 +335,7 @@ class Environment:
                 self.targets[i].vel = new_target.vel.copy()
     #---------------------------------------------------------------------------
 
-    def collisions_segs(self, car):
+    def collisions_segs(self, car, eps=1e-8):
         """ Car collision with segments """
         if self.params['seg_collision']:
             for seg in self.segs:
@@ -323,7 +343,9 @@ class Environment:
                 d = np.linalg.norm(r)         # dist to segment
                 if d <= car.radius:
                     car.pos -= r* ((car.radius/d) - 1)
-                    car.vel = -0.5*car.vel
+                    #car.vel = -0.5*car.vel
+                    car.vel = car.vel - 2*(car.vel @ r)*r / (d + eps)
+                    car.vel = 0.2 * car.vel
                     self.reward[car.index] += Environment.REWARD_CAR_SEG
 
         # на всякий случай:
@@ -500,12 +522,7 @@ class Environment:
                     for i in range(len(car.info['vec']) // 3 - 1, -1, -1):
                         color = colors[ i % len(colors)]                    
                         p1 = p0 + car.info['vec'][3*i: 3*i+3]*(car.radius*mt2px)
-                        pg.draw.line(surf, color, (p0[0],p0[1]), (p1[0],p1[1]), 3 if i==0 else 2)
-
-                #p0 = car.pos*mt2px
-                #p1 = p0 + car.acc*(5*car.radius*mt2px)
-                #g.draw.line(surf, (0,0,255), (p0[0],p0[1]), (p1[0],p1[1]), 2)
-                
+                        pg.draw.line(surf, color, (p0[0],p0[1]), (p1[0],p1[1]), 3 if i==0 else 2)                
 
         if self.camera == 1:
             car = self.cars[0]
@@ -549,7 +566,7 @@ class Environment:
         cols  = (self.num_collisions / self.tot_phys_time) / len(self.kinds)
         rews  = ", ".join([f"{(r/self.tot_phys_time)/sum(self.kinds==k):.2f}" for k,r in enumerate(self.tot_rewards) ])
         times = ", ".join([f"{self.tot_phys_time/(n/sum(self.kinds==k)):.2f}" if n else "???"  for k,n in enumerate(self.tot_targets) ])
-        return f'fps: {0. if self.fps is None else self.fps:.1f} ({self.tot_phys_time/self.tot_phys_run:.3f} sec);  time: {self.tot_phys_time:.0f} sec;  {self.tot_phys_run} steps; collisions: {cols:.3f}/s  targets: {self.tot_targets}; times: [{times}]s rewards: [{rews}]/s per kind'
+        return f'fps: {0. if self.fps is None else self.fps:.1f} ({self.tot_phys_time/self.tot_phys_run:.3f} sec);  time: {self.tot_phys_time:.0f} sec;  {self.tot_phys_run} steps;  targets: {self.tot_targets}; times: [{times}]s rewards: [{rews}]/s per kind; collisions: {cols:.3f}/s'
     #---------------------------------------------------------------------------
 
     def set_caption(self):

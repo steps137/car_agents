@@ -6,14 +6,14 @@ class AI_Phys:
     def __init__(self) -> None:
         self.car_R          = 2.
 
-        self.car_tar_lm_r   = 1.
-        self.car_tar_lm_v   = 10
-        self.car_tar_v_max  = 10
 
-        self.car_car_lm_r   = 1
-        self.car_car_lm_v   = 0.
-        self.car_car_mu     = 3.
-        self.car_car_a      = 2.
+        self.car_tar_lm_r   = 1.                
+        self.car_tar_v_max  = 20.
+
+        self.car_car_lm_r   = 1#1      
+        self.car_car_lm_v   = 1#1
+        self.car_car_mu     = 1.
+        self.car_car_a      = 1.
 
         self.car_seg_lm     = 1.
         self.car_seg_lm_v   = 2.
@@ -62,11 +62,12 @@ class AI_Phys:
 
         action = self.policy(desired_dir, vel, dir, pos, tar_pos).numpy()        
                 
-        self.info = { 'vec': torch.hstack([f.clone(), f1.clone(), f2.clone(), f3.clone()]).numpy()}
+        #self.info = { 'vec': torch.hstack([f.clone(), f1.clone(), f2.clone(), f3.clone()]).numpy()}
+        self.info = { 'vec': f.clone() }
         return action
     #---------------------------------------------------------------------------
 
-    def features(self, pos, vel, tar_pos, tar_vel, eps=1e-8):
+    def features(self, pos, vel, tar_pos, tar_vel, eps=1e-6):
         """
         Create features for Decision Model
         return forces f1, f2, f3: (N,3)
@@ -86,18 +87,18 @@ class AI_Phys:
         N = len(pos)
         r = tar_pos - pos                                   # (N,3) from car to target pos        
         dist = r.norm(dim=-1, keepdim=True)                 # (N,3) dist to target        
-        f1 = r / ( dist + eps)                              # unit vector to target
+        n = r / ( dist + eps)                               # unit vector to target
         
-        k = tar_vel - f1 * (f1*tar_vel).sum(-1).view(N,1)
-        kn = k.norm(dim=-1).view(N,1)
+        k = tar_vel - n * (n * tar_vel).sum(-1).view(N,1)
+        k_len = k.norm(dim=-1, keepdim=True)
 
-        v = torch.empty(N,1).fill_(20)                      # max speed
-        v = torch.where( v > kn, v, kn)
+        v = torch.empty(N,1).fill_(self.car_tar_v_max)      # max speed
+        v = torch.where( v > k_len, v, k_len)
         k = k / (v + eps)
-
-        f = f1 * (1-(k*k).sum(-1).view(N,1))**0.5 + k
+    
+        f = n * ( (1-(k*k).sum(-1).view(N,1)).abs() )**0.5 + k          
+        #f = n      
         return self.car_tar_lm_r * f
-
     #---------------------------------------------------------------------------
 
     def force_car(self, pos, vel, eps):
@@ -114,12 +115,12 @@ class AI_Phys:
         dij.fill_diagonal_(1/eps)                           # no interactions with yourself
         dij = dij.view(N,N,1)
 
-        f1 = rij / ( dij + eps)
+        nij = rij / ( dij + eps)                             # nij
+        nvij = (nij*vij).sum(dim=-1).view(N,N,1)
 
         # r x [v x r]
-        f2 = vij*(rij*rij).sum(dim=-1).view(N,N,1) - rij*(rij*vij).sum(dim=-1).view(N,N,1)
-        f2 = f2 / ( dij**2 + eps)        
-        f2 = f2 / ( vij.norm(dim=-1).view(N,N,1) + eps)        
+        f2 = nij * nvij  - vij
+        f2 = f2 / (f2.norm(dim=-1).view(N,N,1) + eps)     
 
         mu, a = self.car_car_mu, self.car_car_a
 
@@ -127,7 +128,10 @@ class AI_Phys:
         #w = torch.exp(-mu * (dij-1)) / ((dij-1)**2 + eps)
         w = (1+np.exp(mu*(1-a)))/(1+torch.exp(mu*(dij-a)))
 
-        fj = - (w * (self.car_car_lm_r * f1 + self.car_car_lm_v * f2 )).sum(dim=0)
+        f  = -self.car_car_lm_r * nij + self.car_car_lm_v * f2
+        #f = f * (nvij < 0)
+
+        fj = (w * f).sum(dim=0)
 
         return fj                                           # (N,3)
     #---------------------------------------------------------------------------
@@ -149,7 +153,8 @@ class AI_Phys:
         d = d / self.car_R
         w = (1+np.exp(mu*(1-a)))/(1+torch.exp(mu*(d-a)))                        
 
-        return (f*w).sum(1)
+        #return (f*w).sum(1)
+        return torch.zeros_like(vel)
     #---------------------------------------------------------------------------
 
     def seg_r(self, x, p1, p2, eps):

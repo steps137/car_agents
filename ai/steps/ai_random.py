@@ -22,10 +22,10 @@ class AI_Random:
             self.actions = np.zeros((self.n_cars, 2))
 
         if self.cur_tick_df % self.ticks_df == 0:
-            self.actions[:, 0] = 2. * np.random.randint(0, 2, size = (self.n_cars, )) - 1.
+            self.actions[:, 0] = np.tanh(np.random.randn(self.n_cars))
 
         if self.cur_tick_dw % self.ticks_dw == 0:
-            self.actions[:, 1] = 2. * np.random.randint(0, 2, size = (self.n_cars, )) - 1.
+            self.actions[:, 1] = np.tanh(np.random.randn(self.n_cars))
 
         self.cur_tick_df += 1
         self.cur_tick_dw += 1

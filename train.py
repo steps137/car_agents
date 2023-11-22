@@ -1,8 +1,8 @@
 import numpy as np, time
 
-from environment.pygame.environment import Environment
-from ai.steps.ai_greedy import AI_Greedy
-from ai.steps.env_model import AI_EnvModel
+from quenv.environment.pygame.environment import Environment
+from quenv.ai.steps.ai_greedy import AI_Greedy
+from quenv.ai.steps.env_model import AI_EnvModel
 
 def main():
     """ Easy launch of the environment. """   

@@ -1,11 +1,11 @@
 import numpy as np, time
 
-from environment.pygame.environment import Environment
-from ai.steps.ai_random import AI_Random
-from ai.steps.ai_greedy import AI_Greedy
-from ai.steps.ai_phys   import AI_Phys
-from ai.steps.ai_rl   import AI_RL
-from ai.steps.ai_log    import AI_Log
+from quenv.environment.pygame.environment import Environment
+from quenv.ai.steps.ai_random import AI_Random
+from quenv.ai.steps.ai_greedy import AI_Greedy
+from quenv.ai.steps.ai_phys   import AI_Phys
+from quenv.ai.steps.ai_rl   import AI_RL
+from quenv.ai.steps.ai_log    import AI_Log
 
 def main():
     """ Easy launch of the environment. """    
@@ -20,8 +20,8 @@ def main():
     #env = Environment(ai=ai, w=240, h=160,  mt2px=5, level=0) # large space
     env.set_params(car_collision = False, seg_collision = False, moving_targets=True, show_target_line = True, show_actions=True,  all_targets_are_same=False)
 
-    env.run(draw_fps=40, phys_fps=40, speed_up=False, steps=1_000_000)  # normal speed
-    #env.run(draw_fps=1, phys_fps=40, speed_up=True, steps=50_000)   # accelerated physics
+    #env.run(draw_fps=40, phys_fps=40, speed_up=False, steps=1_000_000)  # normal speed
+    env.run(draw_fps=1, phys_fps=40, speed_up=True, steps=50_000)   # accelerated physics
 
 #-------------------------------------------------------------------------------
 

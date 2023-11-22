@@ -1,13 +1,13 @@
 import numpy as np, time
 import torch
 
-from environment.pygame.environment import Environment
+from quenv.environment.pygame.environment import Environment
 from qunet import  DQN, MLP
 
 class MultiEnvironment:
-    def __init__(self, N) -> None:                
+    def __init__(self, N) -> None:
         Environment.REWARD_TIME    = -1
-        Environment.REWARD_TARGET  =  0    
+        Environment.REWARD_TARGET  =  0
         Environment.REWARD_CAR_CAR =  0
         Environment.REWARD_CAR_SEG =  0
 
@@ -16,12 +16,22 @@ class MultiEnvironment:
         self.env.set_params(car_collision = False, seg_collision = False, moving_targets=True)
 
         self.actions = np.array([[-1.,-1.],[-1.,0.],[-1.,1.], [ 0.,-1],[ 0.,0],[ 0.,1.], [1.,-1.],[1.,0],[1.,1.]])
-
+        self.tot_resets = 0
+        self.dt = 1/40.
     #------------------------------------------------------------------------------------
 
-    def reset(self):
-        init_s, s0 = self.env.reset()        
-        return self.features(s0)
+    def reset(self, cur=-1):
+        if cur < 0:
+            init_s, s0 = self.env.reset()        
+            return self.features(s0)
+        else:
+            self.tot_resets += 1
+            if self.tot_resets > 100:
+                self.tot_resets = 0
+                init_s, s0 = self.env.reset()        
+                return self.features(s0)
+            else:
+                return self.features(self.env.state(self.dt))
     #------------------------------------------------------------------------------------
 
     def step(self, a):
@@ -45,8 +55,8 @@ class MultiEnvironment:
         """
         Начнём с преследования цели. Фичи - простые скаляры
         """
-        pos, vel, dir1 = state['pos'], state['vel'], state['dir'] 
-        whe  = state['wheels'] 
+        pos, vel, dir1 = state['pos'], state['vel'], state['dir']
+        whe  = state['wheels']
         t_pos, t_vel = state['target_pos'],  state['target_vel']
 
         vel   = vel   / vel_scale
@@ -59,7 +69,7 @@ class MultiEnvironment:
         R = t_pos - pos
         V = t_vel - vel
         R_len = np.linalg.norm(R, axis=-1, keepdims=True)
-        V_len = np.linalg.norm(V, axis=-1, keepdims=True)        
+        V_len = np.linalg.norm(V, axis=-1, keepdims=True)
 
         n1    = R / (R_len + eps)
         n2    = np.zeros_like(n1)
@@ -75,7 +85,7 @@ class MultiEnvironment:
 
             np.tanh( R_len / dist_scale ),
             np.linalg.norm(t_vel, axis=-1, keepdims=True),
-            V_len,            
+            V_len,
             np.linalg.norm(t_vel, axis=-1, keepdims=True),
             (V * n1).sum(axis=-1).reshape(-1, 1),
             (V * n2).sum(axis=-1).reshape(-1, 1),
@@ -88,7 +98,7 @@ class MultiEnvironment:
     #------------------------------------------------------------------------------------
 
 def main():
-    """ Easy launch of the environment. """   
+    """ Easy launch of the environment. """
     nS, nA, N = 15, 9, 2
 
     env = MultiEnvironment(N)
@@ -99,20 +109,20 @@ def main():
     #print(state)
 
     dqn = DQN( )
-    
-    dqn.params(                  
-        ticks      = 200,            
+
+    dqn.params(
+        ticks      = 200,
         decays     = 500,       # number of episodes to decay eps1 - > eps2
-        update     = 100,       # target model update rate (in frames = time steps)                         
+        update     = 100,       # target model update rate (in frames = time steps)
         capacity   = 100_000,   # memory size
-        reset    = False,            # reset i-th agent in muli-agent mode when done
+        reset    = 2,            # reset i-th agent in muli-agent mode when done
         loss     = 'mse',       # loss function (mse, huber)
         optim    = 'sgd',       # optimizer (sgd, adam)
-        lm       = 0.001,       # learning rate           
+        lm       = 0.001,       # learning rate
     )
-    
-    model = MLP(input=nS, output=nA,  hidden=[256, 64])  
-    torch.save(model.state_dict(), "models/model_01.pt") 
+
+    model = MLP(input=nS, output=nA,  hidden=[256, 64])
+    torch.save(model.state_dict(), "models/model_01.pt")
     dqn.view(ymin=-200, ymax=0)
 
     print(dqn.params)
@@ -124,7 +134,7 @@ def main():
         'model':  dqn.best.model.state_dict(),
         'reward': dqn.best.reward,
     }
-    torch.save(state, "models/model_01.pt") 
+    torch.save(state, "models/model_01.pt")
 
 #-------------------------------------------------------------------------------
 

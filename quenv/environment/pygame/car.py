@@ -20,7 +20,8 @@ class CarModelNormal:
     engine_brake    = 25   # braking
     steering_sensitivity = 100
 
-    v_max = 20            # 20 m/sec max velocity * 3.6 = 72 km/h
+    v_max_forward = 20     # 20 m/sec max velocity * 3.6 = 72 km/h
+    v_max_back    =  5
     w_max = 30*np.pi/180  # maximum rotation angle     in rad    
     w_back_T = 0.5        # the wheels time align in a second
 
@@ -129,10 +130,11 @@ class Car:
         a -= self.model.mu2*vel1/(v+eps)     # road friction
         self.vel += a*dt                         # new velocity value                 
 
-        v = np.linalg.norm(self.vel)             # limit the speed value
-        if v > self.model.v_max:
-            self.vel *= self.model.v_max / v
-            v = self.model.v_max
+        v = np.linalg.norm(self.vel)             # limit the speed value        
+        v_max = self.model.v_max_forward if (self.vel @ self.dir) > 0 else self.model.v_max_back
+        if v > v_max:            
+            self.vel *= v_max / v
+            v = v_max
 
         self.pos += (vel1+self.vel) * (dt/2)     # new car position
 

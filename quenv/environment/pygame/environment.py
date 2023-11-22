@@ -16,9 +16,14 @@ class Environment:
     REWARD_CAR_SEG =   -1  # reward (punishment) for a collision between a car and a segment
     REWARD_TIME    =    0
 
-    IMG_GROUND = "environment/pygame/img/ground.png"
-    IMG_TARGET = "environment/pygame/img/target.png"
-    IMG_ICON   = "environment/pygame/img/icon.png"    
+    IMG_GROUND = "quenv/environment/pygame/img/ground.png"
+    IMG_TARGET = "quenv/environment/pygame/img/target.png"
+    IMG_ICON   = "quenv/environment/pygame/img/icon.png"    
+
+    #IMG_GROUND = "img/ground.png"
+    #IMG_TARGET = "img/target.png"
+    #IMG_ICON   = "img/icon.png"    
+
 
     def __init__(self, ai=None, n_cars=20, w=100, h=50, d=100, mt2px=10, level=0):
         """

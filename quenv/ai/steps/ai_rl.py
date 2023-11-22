@@ -5,8 +5,9 @@ from qunet import MLP
 
 class AI_RL:
     def __init__(self) -> None:
-        nS, nA = 15, 9
-        state = torch.load("models/model_01.pt")
+        nS, nA = 17, 9
+        #state = torch.load("models/model_02.pt")
+        state = torch.load("models/model_03_97.pt")        
         print('reward:', state['reward'])
         self.model = MLP(input=nS, output=nA,  hidden=[256, 64]) 
         self.model.load_state_dict(state['model'])
@@ -44,6 +45,7 @@ class AI_RL:
         return action
     #------------------------------------------------------------------------------------
 
+
     def features(self, state, vel_scale=20, dist_scale=10, eps=1e-6):
         """
         Начнём с преследования цели. Фичи - простые скаляры
@@ -76,6 +78,9 @@ class AI_RL:
             (vel*dir2).sum(axis=-1).reshape(-1,1),
             whe,
 
+            (n1*dir1).sum(axis=-1).reshape(-1,1),
+            (n1*dir2).sum(axis=-1).reshape(-1,1),            
+
             np.tanh( R_len / dist_scale ),
             np.linalg.norm(t_vel, axis=-1, keepdims=True),
             V_len,            
@@ -88,4 +93,3 @@ class AI_RL:
             (K * dir2).sum(axis=-1).reshape(-1, 1),
         ])
         return state
-    #------------------------------------------------------------------------------------

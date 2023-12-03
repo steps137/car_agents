@@ -18,11 +18,11 @@ class Environment:
 
     IMG_GROUND = "quenv/environment/pygame/img/ground.png"
     IMG_TARGET = "quenv/environment/pygame/img/target.png"
-    IMG_ICON   = "quenv/environment/pygame/img/icon.png"    
+    IMG_ICON   = "quenv/environment/pygame/img/icon.png"
 
     #IMG_GROUND = "img/ground.png"
     #IMG_TARGET = "img/target.png"
-    #IMG_ICON   = "img/icon.png"    
+    #IMG_ICON   = "img/icon.png"
 
 
     def __init__(self, ai=None, n_cars=20, w=100, h=50, d=100, mt2px=10, level=0):
@@ -51,17 +51,19 @@ class Environment:
         self.mt2px   = mt2px     # converting meters to pixels
 
         self.params = {
-            'car_collision':        True,  # handle car collisions            
+            'car_collision':        True,  # handle car collisions
             'seg_collision':        True,  # handle collisions with segments
             'all_targets_are_same': False, # the coordinates of all targets are the same
             'show_target_line':     False, # show line from car to target
             'show_actions':         False, # show current car actions
             'moving_targets':       False, # random moving targets
+            'moving_percent':       100,
             'gap':                  4,     # distance in meters of the target from the boundaries of space
-            'max_target_vel':      20,     # maximum target speed     
-            'min_target_vel':       0,     # minimum target speed     
+            'max_target_vel':      20,     # maximum target speed
+            'min_target_vel':       0,     # minimum target speed
             'tar_seg_collision':   True,
-        }        
+            'stop_on_target':      False,
+        }
 
         self.ai     = self.set_ai_dict(ai, n_cars)
 
@@ -93,27 +95,28 @@ class Environment:
             elif  k == 'all_targets_are_same': self.params['all_targets_are_same'] = v
             elif  k == 'show_target_line':     self.params['show_target_line']     = v
             elif  k == 'show_actions':         self.params['show_actions']         = v
-            elif  k == 'moving_targets':       self.params['moving_targets']       = v            
+            elif  k == 'moving_targets':       self.params['moving_targets']       = v
+            elif  k == 'moving_percent':       self.params['moving_percent']       = v
             elif  k == 'gap':                  self.params['gap']                  = v
             elif  k == 'max_target_vel':       self.params['max_target_vel']       = v
             elif  k == 'min_target_vel':       self.params['min_target_vel']       = v
             elif  k == 'tar_seg_collision':    self.params['tar_seg_collision']    = v
-            
+            elif  k == 'stop_on_target':       self.params['stop_on_target']       = v
 
-            else: print(f"!!! Warning: unknown parameter {k} = {v}")                
+            else: print(f"!!! Warning: unknown parameter {k} = {v}")
     #---------------------------------------------------------------------------
 
     def set_ai_dict(self, ai, n_cars):
         if ai is None:
-            self.kinds = np.zeros(shape=(n_cars,), dtype=np.int32)        
+            self.kinds = np.zeros(shape=(n_cars,), dtype=np.int32)
         else:
             if not (type(ai) is dict):
                 ai = {"car": {'ai': ai, 'num': n_cars} }
             self.n_cars = sum([v['num'] for k,v in ai.items()])
-            self.kinds = np.zeros(shape=(self.n_cars,), dtype=np.int32)        
+            self.kinds = np.zeros(shape=(self.n_cars,), dtype=np.int32)
             i = 0
             for kind, (k,v) in enumerate(ai.items()):
-                v['kind'] = kind               
+                v['kind'] = kind
                 self.kinds[i:i+v['num']] = kind
                 i += v['num']
             self.n_cars = i
@@ -164,19 +167,20 @@ class Environment:
         return state
     #---------------------------------------------------------------------------
 
-    def reset(self):
-        """ Restart environment """        
+    def reset(self, clear=True):
+        """ Restart environment """
         self.reward = np.zeros((self.n_cars,))
-        self.done   = np.zeros((self.n_cars,), dtype=bool)        
+        self.done   = np.zeros((self.n_cars,), dtype=bool)
 
         self.create_segments        (self.space_w, self.space_h)
         self.create_cars_and_tragets(self.space_w, self.space_h)
 
-        self.num_collisions = 0
-        self.tot_rewards = [0]*len(self.ai) if self.ai is not None else [0]
-        self.tot_targets = [0]*len(self.ai) if self.ai is not None else [0]
-        self.tot_phys_time = 0
-        self.tot_phys_run  = 0
+        if clear:
+            self.num_collisions = 0
+            self.tot_rewards = [0]*len(self.ai) if self.ai is not None else [0]
+            self.tot_targets = [0]*len(self.ai) if self.ai is not None else [0]
+            self.tot_phys_time = 0
+            self.tot_phys_run  = 0
 
         init_s, s = self.init_state(), self.state(0)
         if self.ai is not None:                               # reset ai agents:
@@ -206,7 +210,7 @@ class Environment:
         self.targets= []         # list of the targets for agents
         gap = self.params['gap']
 
-        for i in range(self.n_cars):            
+        for i in range(self.n_cars):
             vel = np.array([0., 0., 0.])
             if i == 0:
                 pos = np.array([w/4., h/2., 0.])
@@ -225,9 +229,14 @@ class Environment:
             else:
                 target = self.get_random_target(w, h)
             self.targets.append(target)
+
+        self.params['moving_percent'] = min(100, self.params['moving_percent'])
+        if self.params['moving_targets'] and self.params['moving_percent'] < 100:
+            for i in range(int(len(self.targets)*(1-self.params['moving_percent']/100))):
+                self.targets[i].vel = np.zeros((3,))
     #---------------------------------------------------------------------------
 
-    def get_random_target(self, w, h):
+    def get_random_target(self, w, h, i=-1):
         gap = self.params['gap']
         vel = np.zeros((3,))
         if self.params['moving_targets']:
@@ -235,8 +244,13 @@ class Environment:
             vel[2] = 0.
             vel /= (np.linalg.norm(-1, keepdims=True)+1e-8)
             mi = min(self.params['min_target_vel'], self.params['max_target_vel'])
-            ma = max(self.params['min_target_vel'], self.params['max_target_vel'])            
+            ma = max(self.params['min_target_vel'], self.params['max_target_vel'])
             vel *= (ma - mi) * np.random.random() + mi
+
+            if i >= 0 and self.params['moving_percent'] < 100:
+                tot = self.calc_moving_targets(exclude = i)
+                if tot >= len(self.targets) *(self.params['moving_percent'] / 100):
+                    vel = np.zeros((3,))
 
         for _ in range(100):
             pos = np.array([gap+np.random.rand()*(w-2*gap), gap+np.random.rand()*(h-2*gap), 0.])
@@ -250,6 +264,18 @@ class Environment:
                 return Target(pos, vel)
 
         return Target(pos, vel)
+
+    #---------------------------------------------------------------------------
+
+    def calc_moving_targets(self, exclude, eps=1e-3):
+        """ Number of moving targets, excluding the target with number 'exclude' """
+        tot = 0
+        for i, tar in enumerate(self.targets):
+            if i != exclude:
+                v = np.linalg.norm(tar.vel, axis=-1)
+                if v > eps:
+                    tot += 1
+        return tot
     #---------------------------------------------------------------------------
 
     def step(self, action, dt, vectors=None):
@@ -264,8 +290,27 @@ class Environment:
         self.phys(dt)                                      # physics processing
 
         state = self.state(dt)
-        return state, self.reward , self.done
+        self.set_new_targets()                             # new target pos on next state!
 
+        return state, self.reward , self.done
+    #---------------------------------------------------------------------------
+
+    def set_new_targets(self):
+        new_target = None
+        for i,dn in enumerate(self.done):
+            if dn:
+                new_target  = self.get_random_target(self.space_w, self.space_h, i)
+                self.targets[i] = new_target
+                car = self.cars[i]
+                car.dones += 1
+                if self.params['stop_on_target'] == car.dones:
+                    car.vel = np.zeros_like(car.vel)
+                    car.dones = 0
+
+        if self.params['all_targets_are_same'] and new_target is not None:
+            for i in range(len(self.targets)):
+                self.targets[i].pos = new_target.pos.copy()
+                self.targets[i].vel = new_target.vel.copy()
     #---------------------------------------------------------------------------
 
     def r_seg(self, x, seg):
@@ -281,10 +326,10 @@ class Environment:
         if dt < 1e-8: return
         for car in self.cars:
             car.phys(dt)
-            self.collisions_segs(car)                
+            self.collisions_segs(car)
 
         self.tragets_phys(dt)
-        self.collect_targets()        
+        self.collect_targets()
 
         if self.params['car_collision']:
             for i in range(self.n_cars):
@@ -301,7 +346,7 @@ class Environment:
     #---------------------------------------------------------------------------
 
     def tragets_phys(self, dt, eps=1e-8):
-        D = 1        
+        D = 1
         for tar in self.targets:
             tar.pos += tar.vel*dt
 
@@ -318,26 +363,19 @@ class Environment:
                 if tar.pos[0] < -D:              tar.pos[0] = self.space_w - D
                 if tar.pos[0] > self.space_w+D:  tar.pos[0] = D
                 if tar.pos[1] < -D:              tar.pos[1] = self.space_h - D
-                if tar.pos[1] > self.space_h+D:  tar.pos[1] = D            
+                if tar.pos[1] > self.space_h+D:  tar.pos[1] = D
 
     #---------------------------------------------------------------------------
 
     def collect_targets(self):
         """ Collecting car targets"""
-        new_target = None
         for i, (car,target) in enumerate(zip(self.cars, self.targets)):
             pos = car.pos
             if np.linalg.norm(pos-target.pos) < car.radius:
-                new_target  = self.get_random_target(self.space_w, self.space_h)
-                self.targets[i] = new_target
                 self.tot_targets[car.kind] += 1
                 self.reward[i] += Environment.REWARD_TARGET
                 self.done[i] = True
 
-        if self.params['all_targets_are_same'] and new_target is not None:
-            for i in range(len(self.targets)):
-                self.targets[i].pos = new_target.pos.copy()
-                self.targets[i].vel = new_target.vel.copy()
     #---------------------------------------------------------------------------
 
     def collisions_segs(self, car, eps=1e-8):
@@ -404,7 +442,7 @@ class Environment:
         self.prev_time = t
     #---------------------------------------------------------------------------
 
-    def run(self, draw_fps=40, phys_fps=40, speed_up=True, steps=1000, verbose=1):
+    def run(self, draw_fps=40, phys_fps=40, speed_up=True, reset_steps=-1, steps=1000, verbose=1):
         """
         Args
         ------------
@@ -421,11 +459,7 @@ class Environment:
             print("Set the object AI in the constructor ")
             return
 
-        init_s, s = self.reset()
-        for i, (name,ai) in enumerate(self.ai.items()):
-            init_s['ai_kind'] = i
-            if ai['ai'] is not None:
-                ai['ai'].reset(init_s, s)
+        _, s = self.reset(clear=True)
 
         iter, beg_draw, beg_phys = 0, time.time(), time.time()
         while True:
@@ -435,8 +469,8 @@ class Environment:
                 dt = 1/phys_fps
                 if not self.pause:
                     action  = np.zeros(shape=(self.n_cars, 2))
-                    vectors = np.zeros(shape=(self.n_cars, 30))       
-                    n_vecs = 0             
+                    vectors = np.zeros(shape=(self.n_cars, 30))
+                    n_vecs = 0
                     for i, (name,ai) in enumerate(self.ai.items()):
                         if ai['ai'] is not None:
                             a = ai['ai'].step(s, reward=self.reward.copy(), done=self.done.copy())
@@ -450,7 +484,7 @@ class Environment:
                     vectors = vectors[:, : n_vecs]
                     s, rew, done = self.step(action, dt, vectors)
                     iter += 1
-                beg_phys = time.time()                
+                beg_phys = time.time()
 
             cur = time.time()
             if  draw_fps > 0 and cur - beg_draw >= 1/draw_fps:
@@ -462,10 +496,14 @@ class Environment:
             if iter >= steps:
                 break
 
-        if verbose:
-            print(f"finish: fps={0 if self.fps is None else self.fps:.2f}  steps={iter} of {steps}")
+            if reset_steps > 0 and iter % reset_steps == 0:
+                _, s = self.reset(clear=False)
+
+        if verbose:            
             print(self.get_info())
         self.close()
+        return np.mean([self.tot_phys_time/(n/sum(self.kinds==k))  for k,n in enumerate(self.tot_targets) ])
+
     #---------------------------------------------------------------------------
 
     def draw(self):
@@ -510,24 +548,24 @@ class Environment:
             if self.params['show_actions'] and car.actions is not None:
                 p = (car.pos-car.dir)*mt2px
                 text = f"{car.actions[0]:4.1f}"
-                txt_surf = self.font.render(text, True, (0, 0, 255) if car.actions[0] > 0 else (255, 0, 0))       
+                txt_surf = self.font.render(text, True, (0, 0, 255) if car.actions[0] > 0 else (255, 0, 0))
                 surf.blit(txt_surf, (p[0],p[1]))
 
                 text = f"{car.actions[1]:4.1f}"
-                txt_surf = self.font.render(text, True, (0, 0, 255) if car.actions[1] > 0 else (255, 0, 0))                                
+                txt_surf = self.font.render(text, True, (0, 0, 255) if car.actions[1] > 0 else (255, 0, 0))
                 surf.blit(txt_surf, (p[0],p[1]+16))
 
                 text = f"v:{np.linalg.norm(car.vel):.0f}"
-                txt_surf = self.font.render(text, True, (0, 0, 0))                                
+                txt_surf = self.font.render(text, True, (0, 0, 0))
                 surf.blit(txt_surf, (p[0],p[1]+32))
-                
+
                 if car.info is not None and len(car.info['vec']) >= 0:
                     p0 = car.pos*mt2px
                     colors = [(200,0,0), (0,200,0), (0,0,200), (0,200,200), (200,0,200), (200,200,0)]
                     for i in range(len(car.info['vec']) // 3 - 1, -1, -1):
-                        color = colors[ i % len(colors)]                    
+                        color = colors[ i % len(colors)]
                         p1 = p0 + car.info['vec'][3*i: 3*i+3]*(car.radius*mt2px)
-                        pg.draw.line(surf, color, (p0[0],p0[1]), (p1[0],p1[1]), 3 if i==0 else 2)                
+                        pg.draw.line(surf, color, (p0[0],p0[1]), (p1[0],p1[1]), 3 if i==0 else 2)
 
         if self.camera == 1:
             car = self.cars[0]
@@ -571,7 +609,9 @@ class Environment:
         cols  = (self.num_collisions / self.tot_phys_time) / len(self.kinds)
         rews  = ", ".join([f"{(r/self.tot_phys_time)/sum(self.kinds==k):.2f}" for k,r in enumerate(self.tot_rewards) ])
         times = ", ".join([f"{self.tot_phys_time/(n/sum(self.kinds==k)):.2f}" if n else "???"  for k,n in enumerate(self.tot_targets) ])
-        return f'fps: {0. if self.fps is None else self.fps:.1f} ({self.tot_phys_time/self.tot_phys_run:.3f} sec);  time: {self.tot_phys_time:.0f} sec;  {self.tot_phys_run} steps;  targets: {self.tot_targets}; times: [{times}]s rewards: [{rews}]/s per kind; collisions: {cols:.3f}/s'
+        lens  = ", ".join([f"{self.tot_phys_run /(n/sum(self.kinds==k)):.0f}" if n else "???"  for k,n in enumerate(self.tot_targets) ])
+
+        return f'fps:{0. if self.fps is None else self.fps:.1f} ({self.tot_phys_time/self.tot_phys_run:.3f}s); time:{self.tot_phys_time:.0f}s; steps:{self.tot_phys_run}; targets:{self.tot_targets}; times:[{times}]s rewards:[{rews}]/s; collisions:{cols:.3f}/s  len:{lens}'
     #---------------------------------------------------------------------------
 
     def set_caption(self):
@@ -580,7 +620,7 @@ class Environment:
         elif cur - self.prev_time_out > 0.1:
             car = self.cars[0]
             v = np.linalg.norm(car.vel)
-            if self.tot_phys_run:                
+            if self.tot_phys_run:
                 d = np.linalg.norm(self.cars[0].pos - self.targets[0].pos )
                 pg.display.set_caption(f' vel ={v:6.1f} m/sec ={v*3.600:6.1f} km/h  d={d:.1f} | {self.get_info()}')
             self.prev_time_out = cur
@@ -592,7 +632,7 @@ class Environment:
             if ent.type == pg.QUIT:
                 return 'quit'
             elif ent.type == pg.KEYDOWN:
-                if ent.key == pg.K_ESCAPE:                    
+                if ent.key == pg.K_ESCAPE:
                     return 'quit'
                 elif ent.key == pg.K_TAB:
                     return 'tab'

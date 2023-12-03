@@ -3,22 +3,23 @@ import torch
 from   torch import tensor
 
 class AI_Phys:
-    def __init__(self) -> None:
+    def __init__(self, f_dir=True, f_car=True, f_seg=True) -> None:
         self.car_R          = 2.
 
+        self.f_dir=f_dir; self.f_car=f_car; self.f_seg=f_seg
 
         self.car_tar_lm_r   = 1.                
         self.car_tar_v_max  = 20.
 
-        self.car_car_lm_r   = 1#1      
-        self.car_car_lm_v   = 1#1
+        self.car_car_lm_r   = 1 #1      
+        self.car_car_lm_v   = 1 #1
         self.car_car_mu     = 1.
         self.car_car_a      = 1.
 
         self.car_seg_lm     = 1.
         self.car_seg_lm_v   = 2.
-        self.car_seg_mu     = 3.
-        self.car_seg_a      = 4
+        self.car_seg_mu     = 1.
+        self.car_seg_a      = 1
 
     #---------------------------------------------------------------------------
 
@@ -47,9 +48,13 @@ class AI_Phys:
         tar_pos, tar_vel  = tensor(state['target_pos']), tensor(state['target_vel'])
 
         f1, f2, f3 = self.features(pos, vel, tar_pos, tar_vel, eps=1e-8)
-        f =     f1
-        #f = f + f2
-        #f = f + f3
+        f = torch.zeros_like(f1)
+        if self.f_dir:  
+            f = f + f1
+        if self.f_car:  
+            f = f + f2
+        if self.f_seg:  
+            f = f + f3
 
         desired_dir =  f #* state['dt']          # desired direction
 
@@ -129,7 +134,7 @@ class AI_Phys:
         w = (1+np.exp(mu*(1-a)))/(1+torch.exp(mu*(dij-a)))
 
         f  = -self.car_car_lm_r * nij + self.car_car_lm_v * f2
-        #f = f * (nvij < 0)
+        f = f * (nvij < 0)
 
         fj = (w * f).sum(dim=0)
 
@@ -153,8 +158,8 @@ class AI_Phys:
         d = d / self.car_R
         w = (1+np.exp(mu*(1-a)))/(1+torch.exp(mu*(d-a)))                        
 
-        #return (f*w).sum(1)
-        return torch.zeros_like(vel)
+        return (f*w).sum(1)
+        #return torch.zeros_like(vel)
     #---------------------------------------------------------------------------
 
     def seg_r(self, x, p1, p2, eps):

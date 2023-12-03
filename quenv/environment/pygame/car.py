@@ -51,6 +51,7 @@ class Car:
         self.force   = 0           # current gas-brake force
         self.actions = None        # current actions        
         self.info    = None
+        self.dones   = 0           # сколько целей достигла
 
         self.model   = CarModelNormal()
 
